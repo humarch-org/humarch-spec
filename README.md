@@ -25,7 +25,8 @@ Humarch core.
 
 ## Verify an export
 
-Use the reference CLI from the `humarch-verify` repository:
+Use the reference CLI from the
+[`humarch-verify`](https://github.com/humarch-org/humarch-verify) repository:
 
 ```
 humarch-verify export.json
@@ -42,8 +43,9 @@ not the truth.
 
 ## Send events
 
-See the `humarch-adapters` repository for ready-made Make / n8n / Zapier
-templates and `generic` examples for custom agents.
+See the [`humarch-adapters`](https://github.com/humarch-org/humarch-adapters)
+repository for ready-made Make / n8n / Zapier templates and `generic` examples
+for custom agents.
 
 ## Run the conformance suite
 

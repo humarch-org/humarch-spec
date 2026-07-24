@@ -1,0 +1,19 @@
+{
+  "description": "decision outside approved/rejected",
+  "expect_pointer": "/payload/decision",
+  "envelope": {
+    "event_type": "human_approval",
+    "actor": {
+      "type": "human",
+      "id": "mario@agency.example"
+    },
+    "subject": {
+      "end_client": {
+        "ref": "acme-ltd"
+      }
+    },
+    "payload": {
+      "decision": "maybe"
+    }
+  }
+}

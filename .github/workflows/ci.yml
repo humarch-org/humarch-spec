@@ -1,0 +1,39 @@
+# humarch-spec CI (B12 §12.7): re-runs the 21 schema cases and the crypto
+# vectors V0-V5 on every commit — the conformance contract stays green.
+name: ci
+on:
+  push:
+  pull_request:
+
+# Supply-chain hardening (repo-push, 2026-07-16): least-privilege token for
+# every job, and third-party actions pinned by full commit SHA — a moved or
+# hijacked tag cannot change what runs in this repo's CI.
+permissions:
+  contents: read
+
+jobs:
+  # Residual-risk mandate R3 (audit CVE gap, 2026-07-13): the lockfile is
+  # pinned but was never compared against the advisory databases. Blocking
+  # on high/critical (user decision); moderate/low findings stay visible in
+  # the log without failing the gate. deno audit reads deno.lock natively —
+  # osv-scanner has no deno.lock extractor (checked against v2.4.0). A false
+  # positive is silenced only by a dated comment here + a pin bump or, if
+  # the advisory is wrong, an upstream dispute — never by removing the gate.
+  deps-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - name: dependency CVE gate (deno audit, fails on high/critical)
+        run: deno audit --level=high
+
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - run: deno task test

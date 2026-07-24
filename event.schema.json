@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spec.humarchive.com/v1/event.schema.json",
+  "title": "Humarch normalized event (ingestion envelope)",
+  "description": "Body of POST /ingest/generic and output contract of every adapter. See SPEC.md for canonicalization, hashing and chain rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_type", "actor", "subject", "payload"],
+  "properties": {
+    "event_type": {
+      "enum": ["agent_action", "human_approval", "workflow_error", "workflow_run", "guardrail_event", "correction", "custom"]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339. Informative, declared by the source. If absent, the server sets occurred_at = received_at."
+    },
+    "actor": { "$ref": "#/$defs/actor" },
+    "subject": { "$ref": "#/$defs/subject" },
+    "payload": { "$ref": "#/$defs/payload_base" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event_type": { "const": "human_approval" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["decision"],
+            "properties": { "decision": { "enum": ["approved", "rejected"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "workflow_run" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["phase"],
+            "properties": { "phase": { "enum": ["start", "end"] } },
+            "if": { "properties": { "phase": { "const": "end" } } },
+            "then": { "required": ["phase", "status"], "properties": { "status": { "type": "string", "minLength": 1, "maxLength": 200 } } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "correction" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["corrects"],
+            "properties": { "corrects": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "agent_action" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["action"],
+            "properties": { "action": { "type": "string", "minLength": 1, "maxLength": 200 } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "workflow_error" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["message"],
+            "properties": { "message": { "type": "string", "minLength": 1, "maxLength": 5000 } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "guardrail_event" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["outcome"],
+            "properties": { "outcome": { "type": "string", "minLength": 1, "maxLength": 200 } }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["agent", "human", "system"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "workflow": { "$ref": "#/$defs/subject_ref" },
+        "end_client": { "$ref": "#/$defs/subject_ref" },
+        "tool": { "$ref": "#/$defs/subject_ref" }
+      }
+    },
+    "subject_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref"],
+      "properties": {
+        "ref": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "payload_base": {
+      "type": "object",
+      "description": "Normalized event content. Free-form object; per-type required fields are enforced by the allOf branches. Strings must not contain U+0000 (pipeline rule, see SPEC.md §canonicalization).",
+      "properties": {
+        "personal": { "$ref": "#/$defs/personal" }
+      }
+    },
+    "personal": {
+      "description": "Container of ALL AND ONLY the end-client personal data that must be kept in identifiable form (B8 D47). At ingestion it is a clear object; in the STORED/EXPORTED form it is an AES-256-GCM envelope encrypted with the per-subject DEK (D50). The two forms are the documented oneOf below (B8 §8.6). Everything outside this container — including every label and ref — MUST NOT contain personal data of natural persons (normative rule, see SPEC.md §1).",
+      "oneOf": [
+        { "$ref": "#/$defs/personal_clear" },
+        { "$ref": "#/$defs/personal_envelope" }
+      ]
+    },
+    "personal_clear": {
+      "type": "object",
+      "description": "Clear form (ingestion input). Free-form object; the branch excludes envelope-shaped objects so the oneOf stays unambiguous.",
+      "not": { "required": ["enc", "v", "subject", "iv", "ct", "tag"] }
+    },
+    "personal_envelope": {
+      "type": "object",
+      "description": "Stored/exported form: {enc, v, subject, iv, ct, tag}, AAD = 'humarch:pii:v1:' + subject (D50). Integrity is verified WITHOUT decrypting: hashes are computed on this stored form (B2 §2.0 rule B8).",
+      "additionalProperties": false,
+      "required": ["enc", "v", "subject", "iv", "ct", "tag"],
+      "properties": {
+        "enc": { "const": "aes-256-gcm" },
+        "v": { "const": 1 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "iv": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$", "minLength": 16, "maxLength": 16 },
+        "ct": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$", "minLength": 1 },
+        "tag": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$", "minLength": 24, "maxLength": 24 }
+      }
+    }
+  }
+}

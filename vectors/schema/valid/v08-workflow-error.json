@@ -1,0 +1,23 @@
+{
+  "description": "workflow_error requires message (D28)",
+  "envelope": {
+    "event_type": "workflow_error",
+    "actor": {
+      "type": "system",
+      "id": "n8n-runtime"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_204"
+      },
+      "end_client": {
+        "ref": "beta-corp"
+      }
+    },
+    "payload": {
+      "message": "HTTP 500 from HubSpot contacts API",
+      "node": "Update Contact",
+      "attempt": 3
+    }
+  }
+}

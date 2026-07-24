@@ -1,0 +1,15 @@
+{
+  "description": "subject must have at least one member (D29)",
+  "expect_pointer": "/subject",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {},
+    "payload": {
+      "action": "x"
+    }
+  }
+}

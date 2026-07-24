@@ -1,0 +1,22 @@
+{
+  "description": "guardrail_event requires outcome (D28)",
+  "envelope": {
+    "event_type": "guardrail_event",
+    "actor": {
+      "type": "system",
+      "id": "make-guard"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "298311"
+      },
+      "tool": {
+        "ref": "gmail"
+      }
+    },
+    "payload": {
+      "outcome": "blocked",
+      "rule": "external-recipient"
+    }
+  }
+}

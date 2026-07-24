@@ -1,0 +1,18 @@
+{
+  "description": "workflow_run with phase start needs no status (D28)",
+  "envelope": {
+    "event_type": "workflow_run",
+    "actor": {
+      "type": "system",
+      "id": "n8n-runtime"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_204"
+      }
+    },
+    "payload": {
+      "phase": "start"
+    }
+  }
+}

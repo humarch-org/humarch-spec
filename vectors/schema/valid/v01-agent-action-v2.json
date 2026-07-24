@@ -1,0 +1,35 @@
+{
+  "description": "V2 ingestion body (agent_action) — B4 §4.7.1",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "asst_4kx",
+      "label": "Email Assistant"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "scn_298311",
+        "label": "Order confirmations"
+      },
+      "end_client": {
+        "ref": "acme-ltd",
+        "label": "ACME Ltd"
+      },
+      "tool": {
+        "ref": "gmail",
+        "label": "Gmail"
+      }
+    },
+    "payload": {
+      "action": "send_email",
+      "tool": "gmail",
+      "params": {
+        "to": "client@example.com",
+        "subject": "Order confirmation #4821"
+      },
+      "result": "success",
+      "duration_ms": 1240
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "description": "event_type outside the enum (extension is additive via SemVer minor, D33)",
+  "expect_pointer": "/event_type",
+  "envelope": {
+    "event_type": "login",
+    "actor": {
+      "type": "human",
+      "id": "u1"
+    },
+    "subject": {
+      "tool": {
+        "ref": "backoffice"
+      }
+    },
+    "payload": {
+      "action": "login"
+    }
+  }
+}

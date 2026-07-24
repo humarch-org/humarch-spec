@@ -1,0 +1,20 @@
+{
+  "description": "closed envelope: a typo like ocurred_at must fail loudly (D30)",
+  "expect_pointer": "",
+  "envelope": {
+    "event_type": "agent_action",
+    "ocurred_at": "2026-06-12T09:00:00Z",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "w1"
+      }
+    },
+    "payload": {
+      "action": "x"
+    }
+  }
+}

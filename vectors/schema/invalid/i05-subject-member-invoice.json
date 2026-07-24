@@ -1,0 +1,19 @@
+{
+  "description": "subject members are closed to workflow/end_client/tool (D29)",
+  "expect_pointer": "/subject",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {
+      "invoice": {
+        "ref": "inv-1"
+      }
+    },
+    "payload": {
+      "action": "x"
+    }
+  }
+}

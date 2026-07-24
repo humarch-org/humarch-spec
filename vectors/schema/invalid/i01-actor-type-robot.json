@@ -1,0 +1,19 @@
+{
+  "description": "actor.type outside the enum",
+  "expect_pointer": "/actor/type",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "robot",
+      "id": "asst_4kx"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "w1"
+      }
+    },
+    "payload": {
+      "action": "send_email"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "description": "v1.2 payload convention (SPEC §1.2.2): delegation chain — parent.ref is the source-native execution id (n8n numeric form, what the delegator knows when it delegates), parent.event_id the optional strengthening captured from the 202 echo. Declarative reference: no existence check at ingestion",
+  "envelope": {
+    "event_type": "workflow_run",
+    "occurred_at": "2026-07-21T10:12:03Z",
+    "actor": {
+      "type": "agent",
+      "id": "n8n-sub-worker",
+      "label": "Enrichment sub-workflow"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_311",
+        "label": "Contact enrichment"
+      },
+      "end_client": {
+        "ref": "beta-corp",
+        "label": "Beta Corp"
+      }
+    },
+    "payload": {
+      "phase": "start",
+      "delegation": {
+        "parent": {
+          "ref": "84210",
+          "event_id": "7d8e9f0a-1b2c-4d3e-8f4a-5b6c7d8e9f0a"
+        },
+        "root": {
+          "ref": "84203"
+        },
+        "depth": 2
+      }
+    }
+  }
+}

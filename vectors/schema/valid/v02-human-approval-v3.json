@@ -1,0 +1,27 @@
+{
+  "description": "V3 ingestion body (human_approval) with declared occurred_at",
+  "envelope": {
+    "event_type": "human_approval",
+    "occurred_at": "2026-06-12T09:28:55.000000Z",
+    "actor": {
+      "type": "human",
+      "id": "john.doe@agency.example",
+      "label": "John Doe"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "scn_298311",
+        "label": "Order confirmations"
+      },
+      "end_client": {
+        "ref": "acme-ltd",
+        "label": "ACME Ltd"
+      }
+    },
+    "payload": {
+      "decision": "approved",
+      "latency_seconds": 847,
+      "note": "Amount above threshold, verified manually"
+    }
+  }
+}

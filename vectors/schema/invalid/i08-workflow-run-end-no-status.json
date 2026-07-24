@@ -1,0 +1,19 @@
+{
+  "description": "workflow_run phase end without status (D28 conditional)",
+  "expect_pointer": "/payload",
+  "envelope": {
+    "event_type": "workflow_run",
+    "actor": {
+      "type": "system",
+      "id": "n8n-runtime"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_204"
+      }
+    },
+    "payload": {
+      "phase": "end"
+    }
+  }
+}

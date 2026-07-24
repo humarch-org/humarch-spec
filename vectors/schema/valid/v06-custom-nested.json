@@ -1,0 +1,29 @@
+{
+  "description": "custom event with arbitrary nested payload (D28: payload free, actor/subject still required)",
+  "envelope": {
+    "event_type": "custom",
+    "actor": {
+      "type": "agent",
+      "id": "langgraph-orchestrator"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "pipeline-orders-v2"
+      }
+    },
+    "payload": {
+      "kind": "reasoning_step",
+      "depth": 3,
+      "trace": {
+        "nodes": [
+          1,
+          2,
+          {
+            "leaf": true
+          }
+        ],
+        "note": "free-form"
+      }
+    }
+  }
+}

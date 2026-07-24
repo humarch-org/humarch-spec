@@ -1,0 +1,17 @@
+{
+  "description": "W1 — DEK wrapping at rest (B8 §8.4.1, D55): AES-256-CBC + HMAC-SHA256 in Encrypt-then-MAC, subkeys derived from the KEK via HKDF-Expand (RFC 5869; Extract omitted, the KEK is already uniform). IV is FIXED ONLY FOR THE VECTOR (production wraps with a random IV). The wrapped DEK is the V6 DEK, so the two vectors show the same key in use and at rest. Layout: wrapped_dek = IV(16) || CT || HMAC(32). Subkey derivation: subkey = HMAC-SHA256(KEK, UTF8(label) || 0x01). Demonstrations: W1a — unwrap(wrapped_dek, kek) returns the DEK; W1b — flipping any byte of wrapped_dek fails the MAC check BEFORE decryption (DEK_WRAP_AUTH_FAILED, no padding oracle); W1c — a different KEK derives a different mac_key, so the MAC never verifies: a wrapped DEK is useless without the Vault KEK.",
+  "kek": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+  "dek": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "iv": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+  "subkeys": {
+    "enc_label": "humarch:dek-wrap:enc:v1",
+    "mac_label": "humarch:dek-wrap:mac:v1",
+    "cmp_label": "humarch:dek-wrap:cmp:v1",
+    "enc_key": "bb269dce970c9e4d34d64eb47ed4779edb42b02a0578494b89d8c6dafdebefa3",
+    "mac_key": "074bb9b4dbe36bf4889b6d7942786a395f6b1adec7f783c3331c710a0098fca5",
+    "cmp_key": "6ae47bc8d786fa683f9e29bf5419d8a0931c3ce55bb50aa4adab1783ec03642f"
+  },
+  "ct": "28c305312d1d1d719d736545d638ae2a09ab502c8e1c72a6fdc3746373ddb791000a95dce98257c520d5f2cae2a09016",
+  "mac": "771b4ba614b5d1a8f376a3cf9ef44e50707e6e3954413ae1906fdf75d40cab2d",
+  "wrapped_dek": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf28c305312d1d1d719d736545d638ae2a09ab502c8e1c72a6fdc3746373ddb791000a95dce98257c520d5f2cae2a09016771b4ba614b5d1a8f376a3cf9ef44e50707e6e3954413ae1906fdf75d40cab2d"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "correction.corrects must be a UUID",
+  "expect_pointer": "/payload/corrects",
+  "envelope": {
+    "event_type": "correction",
+    "actor": {
+      "type": "human",
+      "id": "ops@agency.example"
+    },
+    "subject": {
+      "end_client": {
+        "ref": "acme-ltd"
+      }
+    },
+    "payload": {
+      "corrects": "event-42"
+    }
+  }
+}

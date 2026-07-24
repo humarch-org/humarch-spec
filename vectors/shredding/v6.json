@@ -1,0 +1,55 @@
+{
+  "description": "V6 — crypto-shredding (B8 §8.9): an event with an encrypted payload.personal envelope. DEK and IV are FIXED ONLY FOR THE VECTOR (production uses a random IV per encryption). Identity fields, actor and signing key are the V2 writer identity; the subject carries the Make-adapter workflow ref '298311' (not 'scn_298311' — see the traceability note in B8 §8.9). Demonstrations: V6a — a third party recomputes payload_hash on the stored form WITHOUT the DEK; V6b — deleting the DEK changes no stored byte, so every hash is unchanged; V6c — without the right DEK, AES-GCM decryption fails (InvalidTag): the data is irrecoverable after the shred.",
+  "signing_key": {
+    "seed": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+    "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+    "signing_key_id": "ed25519:21fe31dfa154a261"
+  },
+  "encryption": {
+    "dek": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "iv": "a0a1a2a3a4a5a6a7a8a9aaab",
+    "aad": "humarch:pii:v1:acme-ltd",
+    "subject_ref": "acme-ltd",
+    "personal_clear": {
+      "to": "client@example.com",
+      "recipient_name": "John Doe"
+    },
+    "personal_jcs": "{\"recipient_name\":\"John Doe\",\"to\":\"client@example.com\"}"
+  },
+  "event": {
+    "event_id": "7d8e9f0a-1b2c-4d3e-8f4a-5b6c7d8e9f0a",
+    "tenant_id": "0f4a1c2e-7b3d-4e5f-9a8b-6c5d4e3f2a1b",
+    "sequence_number": 1,
+    "received_at": "2026-06-12T09:15:42.123456Z",
+    "occurred_at": "2026-06-12T09:15:42.123456Z",
+    "source": "make",
+    "event_type": "agent_action",
+    "actor": {"type": "agent", "id": "asst_4kx", "label": "Email Assistant"},
+    "subject": {
+      "workflow": {"ref": "298311", "label": "Order confirmations"},
+      "end_client": {"ref": "acme-ltd", "label": "ACME Ltd"},
+      "tool": {"ref": "gmail", "label": "Gmail"}
+    },
+    "payload": {
+      "action": "send_email",
+      "tool": "gmail",
+      "result": "success",
+      "duration_ms": 1240,
+      "personal": {
+        "enc": "aes-256-gcm",
+        "v": 1,
+        "subject": "acme-ltd",
+        "iv": "oKGio6Slpqeoqaqr",
+        "ct": "nToOSCaictYHC/OMaRutu1KWe1r93yxM2GFDpFOJAW7wTGWcw0s2UyvcYbBoF/OVIjUlJw/yZw==",
+        "tag": "vdoPr2QXzt+qxyNGYo6+kQ=="
+      }
+    },
+    "payload_hash": "d536576d5431aa05bd6abb69442379e3e689271a06728dbd5d42daafa04af77e",
+    "prev_hash": "ce0d561658e27956a6e600098c094d320ff8b01280f466d5dac742cd34b14e3c",
+    "event_hash": "396ccdc369e67ed3716e814d591bf8217b71aef1175642bcb90bd5feb5ad7797",
+    "signature": "a653fbf934c07bba4ccc25bb71def350f4d12c8bf8e87d1d4274c9f5dc335ee27b0c7e5a32f07045ae8efe8ee5888487943dd3b71c6bd9a69a8965cc870cfc0d",
+    "signing_key_id": "ed25519:21fe31dfa154a261"
+  },
+  "actor_hash": "b0486a11017485e017970ece65cc6f169b1936126d17527fed3f4ffd4e48fe91",
+  "subject_hash": "2305a1d26d82eb687fb5e4a3da27aa70a592057f48cfaa6c69616d50abb79de5"
+}

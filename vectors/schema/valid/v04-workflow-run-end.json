@@ -1,0 +1,23 @@
+{
+  "description": "workflow_run with phase end requires status (D28)",
+  "envelope": {
+    "event_type": "workflow_run",
+    "actor": {
+      "type": "system",
+      "id": "n8n-runtime"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_204"
+      },
+      "end_client": {
+        "ref": "beta-corp"
+      }
+    },
+    "payload": {
+      "phase": "end",
+      "status": "success",
+      "steps_executed": 14
+    }
+  }
+}

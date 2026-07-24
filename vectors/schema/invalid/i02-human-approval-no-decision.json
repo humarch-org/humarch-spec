@@ -1,0 +1,19 @@
+{
+  "description": "human_approval without decision",
+  "expect_pointer": "/payload",
+  "envelope": {
+    "event_type": "human_approval",
+    "actor": {
+      "type": "human",
+      "id": "mario@agency.example"
+    },
+    "subject": {
+      "end_client": {
+        "ref": "acme-ltd"
+      }
+    },
+    "payload": {
+      "latency_seconds": 847
+    }
+  }
+}

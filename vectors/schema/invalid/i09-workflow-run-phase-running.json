@@ -1,0 +1,19 @@
+{
+  "description": "phase outside start/end",
+  "expect_pointer": "/payload/phase",
+  "envelope": {
+    "event_type": "workflow_run",
+    "actor": {
+      "type": "system",
+      "id": "n8n-runtime"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_204"
+      }
+    },
+    "payload": {
+      "phase": "running"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "description": "v1.2 payload convention (SPEC §1.2.1): agent_action with payload.tool_call — name REQUIRED, params/result/status optional. Shows the §1.2.3 personal-data pattern: pseudonymous refs and a content hash in the convention fields, the identifiable datum in payload.personal",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "asst_4kx",
+      "label": "Email Assistant"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "scn_298311",
+        "label": "Order confirmations"
+      },
+      "end_client": {
+        "ref": "acme-ltd",
+        "label": "ACME Ltd"
+      },
+      "tool": {
+        "ref": "gmail",
+        "label": "Gmail"
+      }
+    },
+    "payload": {
+      "action": "send_email",
+      "tool_call": {
+        "name": "send_email",
+        "params": {
+          "template": "order-confirmation",
+          "recipient_ref": "crm-4821"
+        },
+        "result": {
+          "message_sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+        },
+        "status": "ok"
+      },
+      "personal": {
+        "recipient_email": "client@example.com"
+      },
+      "duration_ms": 1240
+    }
+  }
+}

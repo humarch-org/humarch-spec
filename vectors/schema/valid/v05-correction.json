@@ -1,0 +1,19 @@
+{
+  "description": "correction referencing an event by UUID (format at schema level, existence at ingestion — D32)",
+  "envelope": {
+    "event_type": "correction",
+    "actor": {
+      "type": "human",
+      "id": "ops@agency.example"
+    },
+    "subject": {
+      "end_client": {
+        "ref": "acme-ltd"
+      }
+    },
+    "payload": {
+      "corrects": "7d8e9f0a-1b2c-4d3e-8f4a-5b6c7d8e9f0a",
+      "reason": "wrong client attribution"
+    }
+  }
+}

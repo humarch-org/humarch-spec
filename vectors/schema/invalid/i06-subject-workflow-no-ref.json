@@ -1,0 +1,19 @@
+{
+  "description": "subject members require ref (D29)",
+  "expect_pointer": "/subject/workflow",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {
+      "workflow": {
+        "label": "Order confirmations"
+      }
+    },
+    "payload": {
+      "action": "x"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "description": "V5 — negative vectors (tampering) over V2/V3 (B2 §2.8). Any conformant verifier MUST reject V5a/V5b pointing at the exact sequence, and MUST NOT flag V5c.",
+  "v5a": {
+    "description": "altering one character of the V2 payload (#4821 → #4822) changes payload_hash, hence event_hash, hence breaks the chain from that point on",
+    "altered_payload": {
+      "action": "send_email",
+      "tool": "gmail",
+      "params": {"to": "client@example.com", "subject": "Order confirmation #4822"},
+      "result": "success",
+      "duration_ms": 1240
+    },
+    "altered_payload_hash": "c94f093d95cfede8c6ccb290cd9aab3ab3bc78d0372d4ddc634cd255db029d25",
+    "expected_failure": {"sequence_number": 1, "kind": "payload_hash_mismatch"}
+  },
+  "v5b": {
+    "description": "flipping one bit of the V2 signature makes Ed25519 verification fail",
+    "expected_failure": {"sequence_number": 1, "kind": "bad_signature"}
+  },
+  "v5c": {
+    "description": "escape differences are NOT tampering: see canonicalization/v1c.json (same canonical form, same hash)"
+  }
+}

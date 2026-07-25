@@ -4,6 +4,11 @@ name: ci
 on:
   push:
   pull_request:
+  # Advisories land while the repo sits still: re-run the CVE gate weekly
+  # (Mon 06:17 UTC), not only on pushes. Manual runs via workflow_dispatch.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
 
 # Supply-chain hardening (repo-push, 2026-07-16): least-privilege token for
 # every job, and third-party actions pinned by full commit SHA — a moved or

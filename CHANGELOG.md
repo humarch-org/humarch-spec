@@ -4,6 +4,36 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.3.0 — 2026-07-27
+
+Dual anchor (additive, D33; SPEC.md §7.1, §8):
+
+- New OPTIONAL per-anchor export field `qualified_timestamp`
+  (`token_base64` + `tsa_name`/`policy_oid`/`gen_time` metadata): an RFC 3161
+  timestamp token — a qualified electronic timestamp under eIDAS (art. 42)
+  when issued by an accredited trust service provider — on the SAME daily
+  aggregate hash the Bitcoin anchor commits to. Two independent proofs, one
+  hash: independent failure modes
+- Normative semantics (§7.1): the art. 42 presumption attaches to the daily
+  aggregate; every event verifiably contained in it inherits that
+  anteriority through deterministic, reproducible recomputation. Stating
+  that each event carries its own qualified timestamp is forbidden
+- Normative export rule (§8 rule 8): the token is the authoritative
+  artifact, metadata is convenience; presence of the field asserts nothing —
+  qualification is established in verification; parse caps and declared
+  `invalid` on unreadable tokens
+- New additive vectors (`vectors/qualified/`): valid mark, digest mismatch,
+  malformed token, valid-but-untrusted TSA (raw `.tst` tokens from two
+  independent TSA implementations included); absence of the field is pinned
+  by the existing export vectors
+- Declared lifecycle note: ~20-year verifiability horizon of qualified
+  timestamps, re-timestamping strategy declared like key rotation (§6)
+
+No crypto change and no new obligation: exports without the field are the
+pre-1.3 form and verify identically — vectors V0–V6, W1, the 23 schema cases
+and the export format remain valid as published. Verification outcome and
+exit codes of the reference verifier are unchanged (the check is additive).
+
 ## 1.2.0 — 2026-07-21
 
 Payload conventions (additive, D33; SPEC.md §1.2):

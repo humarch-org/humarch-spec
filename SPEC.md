@@ -323,6 +323,50 @@ and covers events up to that anchor; later events are protected by chain and
 signatures until the next anchor confirms. Verifiers MUST state this rather
 than hide it.
 
+### 7.1 Qualified timestamp (RFC 3161, optional — v1.3, additive)
+
+A day's `aggregate_hash` MAY additionally carry an **RFC 3161 timestamp
+token** (a DER `TimeStampToken`, profile ETSI EN 319 422) issued on the SAME
+32-byte digest the OTS anchor commits to. When the issuer is a **qualified
+trust service provider** accredited under Regulation (EU) 910/2014 (eIDAS),
+the token is a qualified electronic timestamp and carries the **art. 42
+presumption of the accuracy of the date and time it indicates and of the
+integrity of the data bound to it**. The two proofs are independent by
+design: they share the hash, not the failure modes.
+
+Semantics (normative): **the presumption attaches to the data the token
+marks — the daily aggregate hash.** Every event verifiably contained in that
+aggregate (through the §7 recomputation and the §5 chain, both deterministic
+and reproducible by anyone) inherits that anteriority through derivation.
+Implementations and derived material MUST NOT state or imply that each event
+carries its own qualified timestamp.
+
+Verification (any RFC 3161 tooling works — the reference verifier is not
+privileged):
+
+1. the token parses as CMS `SignedData` carrying a `TSTInfo`;
+2. `TSTInfo.messageImprint` (SHA-256) equals the anchor's `aggregate_hash`;
+3. the TSA's signature over the signed attributes verifies against the
+   signer certificate embedded in the token (tokens are requested with
+   `certReq` TRUE so exports verify offline);
+4. the signer chains to a TSA the verifying party trusts — for the
+   qualification claim, one accredited under the **EU Trusted List**.
+   E.g. `openssl ts -verify -digest <aggregate_hash> -token_in
+   -in token.tst -CAfile <TSA CA chain>`.
+
+A token that fails 1–3 is **invalid**; a token that passes 1–3 from an
+issuer outside the verifying party's trusted set is a **valid token from an
+untrusted TSA and carries no presumption**. Either outcome is declared and
+MUST NOT change the outcome of the §7/§5 verification (the field is
+additive; absence is the pre-1.3 form and stays fully valid).
+
+Lifecycle note (declared, not a mechanism): a qualified timestamp remains
+verifiable for as long as its certificate chain can be validated —
+typically ~20 years under current QTSP practices. Before that horizon is
+reached, the operator's declared strategy is to re-timestamp the aggregates
+under a then-current qualified TSA (an additive operation on the same
+hashes), exactly as key rotation is declared in §6.
+
 ## 8. Export format `humarch-export/v1` (D27)
 
 A single self-contained JSON document (allegeable as-is):
@@ -340,7 +384,11 @@ A single self-contained JSON document (allegeable as-is):
       anchor_date, aggregate_hash, ots_status, ots_btc_block?,
       entry: { tenant_id, last_event_id, last_event_hash, last_sequence_number },
       anchor_entries_for_aggregate: [ { tenant_id, last_event_hash } ... ],
-      ots_file_base64?   (present when the .ots receipt exists)
+      ots_file_base64?,  (present when the .ots receipt exists)
+      qualified_timestamp?: {   (v1.3, §7.1 — present when the day has its mark)
+          token_base64,  (DER TimeStampToken)
+          tsa_name, policy_oid, gen_time
+      }
   } ]
 }
 ```
@@ -364,6 +412,15 @@ Normative rules:
    likewise an envelope and stays opaque to anyone without the subject DEK
    (D51). Neither affects verification: hashes are computed on the stored
    form (B8 rule, §1.1).
+8. `qualified_timestamp` (v1.3) is OPTIONAL and additive: exports without it
+   are the pre-1.3 form and verify identically. `token_base64` is the
+   authoritative artifact — `tsa_name`, `policy_oid` and `gen_time` are
+   convenience metadata that verifiers MUST take from the token itself, and
+   the presence of the field asserts nothing: qualification is a property of
+   the issuing TSA, established in verification (§7.1). Verifiers MUST cap
+   the token size they are willing to parse (the reference cap is 64 KiB)
+   and MUST treat an unreadable token as a declared `invalid`, never as a
+   verification failure of the export.
 
 A verifier processes the export as in the reference implementation
 (`humarch-verify`): recompute component hashes (JCS from parsed values),
@@ -399,6 +456,11 @@ An implementation is conformant when it reproduces:
   `payload.personal` (v1.1),
 - the **23 schema cases** (`vectors/schema/`) — v09/v10 pin the §1.2 payload
   conventions (`tool_call`, `delegation`),
+- the **qualified-timestamp vectors** (`vectors/qualified/`, v1.3) for
+  implementations that read the §7.1 field: the valid-mark export, the
+  no-mark export (byte-identical pre-1.3 behavior), the digest-mismatch and
+  malformed-token exports (declared `invalid`), and the valid-but-untrusted
+  TSA case (declared, no presumption),
 - the pipeline rules of §1,
 
 and, for verifiers, accepts/rejects the sample exports pointing at the exact

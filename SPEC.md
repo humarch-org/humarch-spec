@@ -360,6 +360,12 @@ untrusted TSA and carries no presumption**. Either outcome is declared and
 MUST NOT change the outcome of the §7/§5 verification (the field is
 additive; absence is the pre-1.3 form and stays fully valid).
 
+A genuine token proves existence of the aggregate **at its own `genTime`**.
+When `genTime` falls outside the declared day's window (for example a later
+re-timestamp under the lifecycle strategy below), verifiers SHOULD say so
+explicitly rather than present the token as proof of the declared day; the
+token itself remains valid.
+
 Lifecycle note (declared, not a mechanism): a qualified timestamp remains
 verifiable for as long as its certificate chain can be validated —
 typically ~20 years under current QTSP practices. Before that horizon is

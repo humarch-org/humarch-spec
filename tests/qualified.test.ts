@@ -16,7 +16,13 @@ const b64ToBytes = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0
 const MAX_TST_BYTES = 64 * 1024; // §8 rule 8 reference cap
 
 Deno.test("qualified vectors: field shape and size cap", () => {
-  for (const name of ["export-qualified.json", "export-qualified-mismatch.json"]) {
+  for (
+    const name of [
+      "export-qualified.json",
+      "export-qualified-today.json",
+      "export-qualified-mismatch.json",
+    ]
+  ) {
     const qt = vec(name).anchors[0].qualified_timestamp;
     assertEquals(typeof qt.token_base64, "string");
     assertEquals(typeof qt.tsa_name, "string");
@@ -27,6 +33,13 @@ Deno.test("qualified vectors: field shape and size cap", () => {
 });
 
 Deno.test("qualified vectors: the valid token commits to the anchor's aggregate", () => {
+  // Same-day mark: the token was issued on THIS day's aggregate (the
+  // export-qualified.json pair is the later re-timestamp case, SPEC 7.1).
+  const today = vec("export-qualified-today.json").anchors[0];
+  assert(
+    toHex(b64ToBytes(today.qualified_timestamp.token_base64)).includes(today.aggregate_hash),
+    "the same-day token commits to the recomputed aggregate",
+  );
   const exp = vec("export-qualified.json");
   const anchor = exp.anchors[0];
   const tokenHex = toHex(b64ToBytes(anchor.qualified_timestamp.token_base64));

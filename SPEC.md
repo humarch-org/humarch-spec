@@ -345,14 +345,20 @@ Verification (any RFC 3161 tooling works — the reference verifier is not
 privileged):
 
 1. the token parses as CMS `SignedData` carrying a `TSTInfo`;
-2. `TSTInfo.messageImprint` (SHA-256) equals the anchor's `aggregate_hash`;
+2. `TSTInfo.messageImprint` (SHA-256) equals the aggregate hash **recomputed
+   from `anchor_entries_for_aggregate` per §7** — NOT the `aggregate_hash`
+   field as it appears in the export. That field is supplied by whoever
+   produced the document: binding the token to it lets a genuine
+   (hash, token) pair lifted from a published export vouch for a fabricated
+   entry set. Verifiers MUST bind to the recomputed value;
 3. the TSA's signature over the signed attributes verifies against the
    signer certificate embedded in the token (tokens are requested with
    `certReq` TRUE so exports verify offline);
 4. the signer chains to a TSA the verifying party trusts — for the
    qualification claim, one accredited under the **EU Trusted List**.
-   E.g. `openssl ts -verify -digest <aggregate_hash> -token_in
-   -in token.tst -CAfile <TSA CA chain>`.
+   E.g. `openssl ts -verify -digest <recomputed aggregate> -token_in
+   -in token.tst -CAfile <TSA CA chain>` — the digest passed on the command
+   line is the value recomputed at step 2, never the one read from the file.
 
 A token that fails 1–3 is **invalid**; a token that passes 1–3 from an
 issuer outside the verifying party's trusted set is a **valid token from an

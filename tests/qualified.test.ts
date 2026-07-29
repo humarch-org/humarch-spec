@@ -64,6 +64,32 @@ Deno.test("qualified vectors: the malformed token is not a DER SEQUENCE", () => 
   assert(bytes[0] !== 0x30, "deliberately not a TimeStampToken");
 });
 
+Deno.test("SPEC §7.1: the binding step names the RECOMPUTED aggregate", () => {
+  // The spec IS the contract third parties implement against. An
+  // implementer who binds the token to the `aggregate_hash` field carried by
+  // the export — producer-supplied data — builds a verifier that a stolen
+  // (hash, token) pair defeats. The wording is load-bearing, so it is
+  // pinned here (external audit, 2026-07-29).
+  // Line endings vary by checkout (CRLF on Windows): normalize, then read a
+  // window from the step's opening rather than matching its punctuation.
+  const spec = Deno.readTextFileSync(new URL("../SPEC.md", import.meta.url))
+    .replace(/\r\n/g, "\n");
+  const at = spec.indexOf("2. `TSTInfo.messageImprint`");
+  assert(at >= 0, "§7.1 step 2 must exist");
+  // Collapse the wrapping: a normative phrase must be found whether or not
+  // the paragraph happens to break in the middle of it.
+  const step2 = spec.slice(at, spec.indexOf("\n3. ", at)).replace(/\s+/g, " ");
+  assert(step2.length > 0, "§7.1 step 2 must be followed by step 3");
+  assert(
+    /recomputed/i.test(step2),
+    "§7.1 step 2 must bind the token to the RECOMPUTED aggregate",
+  );
+  assert(
+    /NOT the `aggregate_hash` field/i.test(step2),
+    "§7.1 step 2 must rule out the declared field explicitly",
+  );
+});
+
 Deno.test("qualified vectors: tsa-trust document shape (humarch-tsa/v1)", () => {
   const doc = vec("tsa-trust-local.json");
   assertEquals(doc.format, "humarch-tsa/v1");

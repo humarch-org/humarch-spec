@@ -22,6 +22,10 @@ Dual anchor (additive, D33; SPEC.md §7.1, §8):
   artifact, metadata is convenience; presence of the field asserts nothing —
   qualification is established in verification; parse caps and declared
   `invalid` on unreadable tokens
+- Normative binding (§7.1 step 2): the token is checked against the
+  aggregate hash **recomputed** from `anchor_entries_for_aggregate`, never
+  against the `aggregate_hash` field carried by the export — that field is
+  supplied by the document's producer
 - New additive vectors (`vectors/qualified/`): valid mark, digest mismatch,
   malformed token, valid-but-untrusted TSA (raw `.tst` tokens from two
   independent TSA implementations included); absence of the field is pinned

@@ -1,0 +1,47 @@
+{
+  "description": "v1.4 payload convention (SPEC §1.2.5): agent_action with payload.external_refs — the three canonical member shapes: artifact_sha256 (fingerprint of stable content), {system, ref} (third-party native id, declared as a value), message_id_sha256 (digest of the Message-ID header, angle brackets included — the clear Message-ID SHOULD NOT be recorded). Declarative references: never resolved or checked at ingestion",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "asst_4kx",
+      "label": "Order Assistant"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "scn_298311",
+        "label": "Order confirmations"
+      },
+      "end_client": {
+        "ref": "acme-ltd",
+        "label": "ACME Ltd"
+      },
+      "tool": {
+        "ref": "shopify",
+        "label": "Shopify"
+      }
+    },
+    "payload": {
+      "action": "confirm_order",
+      "tool_call": {
+        "name": "orders.confirm",
+        "params": {
+          "order_ref": "5723911058629"
+        },
+        "status": "ok"
+      },
+      "external_refs": [
+        {
+          "artifact_sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+        },
+        {
+          "system": "shopify",
+          "ref": "5723911058629"
+        },
+        {
+          "message_id_sha256": "b2c76efb2f60c6acd44f4437a3f2f95acb01e73bcb9d4761994c1747db66b0c8"
+        }
+      ]
+    }
+  }
+}

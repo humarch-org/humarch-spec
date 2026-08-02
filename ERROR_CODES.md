@@ -40,7 +40,10 @@ Every error response of the ingestion API has this body (B4 §4.5):
    unknown codes as non-retryable unless the HTTP class is 5xx or 429.
 2. `detail` is for humans and is **not parseable**: automation looks only at
    `error_code` and the headers.
-3. The success response is `202 {event_id, sequence_number}`; an idempotent
+3. The success response is `202 {event_id, sequence_number, event_hash}`
+   (`event_hash` added in v1.4 as an additive **echo field** — the stored
+   event's hash, present on first write and on replay alike; clients that do
+   not read it are unaffected, error bodies never carry it); an idempotent
    replay adds `idempotent_replay: true` (D24/E6).
 4. On `401` the `detail` is identical for missing/malformed/unknown/revoked
    keys ("authentication failed"): no enumeration oracle.

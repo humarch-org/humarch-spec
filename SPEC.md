@@ -64,6 +64,19 @@ in the envelope (F7). Resolution precedence: explicit header → adapter-derived
 `payload_hash` = replay (202, `idempotent_replay: true`); same key +
 different content = `409 DUPLICATE_IDEMPOTENCY_KEY` (D24).
 
+The success response is `202 {event_id, sequence_number, event_hash}`
+(`event_hash` added in v1.4, additive). `event_hash` is an **echo field**:
+the §5 hash of the event as stored, echoed on the first write and on an
+idempotent replay alike (the replay echoes the hash of the originally stored
+event, byte-identical by construction). A sender that logs the response
+holds the exact slot `(event_id, sequence_number, event_hash)` its event
+occupies in the tenant chain. The echo is not signed and is not a receipt —
+by itself it carries the same weight as any other line in the sender's logs.
+Its value is positional: the per-tenant sequence is dense, so any future
+state of the registry in which that sequence number does not carry that
+content is a demonstrable contradiction. Error bodies never carry
+`event_hash`.
+
 The ingestion API intentionally sends **no CORS headers**: every supported
 source is server-side (E8).
 
@@ -103,13 +116,14 @@ shred (same bytes): chain verification is independent of key availability.
 Vector V6 (`vectors/shredding/`); the DEK wrapping at rest is pinned by
 vector W1 (`vectors/wrapping/`).
 
-### 1.2 Payload conventions: `tool_call` and `delegation` (v1.2, additive)
+### 1.2 Payload conventions (v1.2 `tool_call`/`delegation`, v1.4 `external_refs`/`execution` — additive)
 
-Two optional payload conventions normalize how implementations record **tool
-invocations** and **delegation between executions**. The payload stays open
-(D30): neither field is ever required, and their absence is never a
-validation error. But **if** an implementation records a tool invocation or a
-delegation relationship in the payload, it MUST use these field names and
+Optional payload conventions normalize how implementations record **tool
+invocations** and **delegation between executions** (v1.2), and how they
+declare **external references** and the **run that emits the event** (v1.4).
+The payload stays open (D30): none of these fields is ever required, and
+their absence is never a validation error. But **if** an implementation
+records one of these facts in the payload, it MUST use these field names and
 shapes — one public convention is what makes such records comparable across
 sources and legible to third parties in audit and evidence use cases; fields
 invented per client prove nothing to an auditor.
@@ -198,15 +212,110 @@ datum is irrecoverable.
 #### 1.2.4 Conformance level and crypto neutrality
 
 - The conventions are **conditional MUSTs on the shape**, not obligations of
-  presence. No new validation is added at ingestion in v1.2: a malformed
-  `tool_call` or `delegation` is NOT a `SCHEMA_VIOLATION` (a future version
-  MAY harden this, per D33; the trigger would be a real dispute over a
-  malformed convention field).
+  presence. No new validation is added at ingestion in v1.2 or v1.4: a
+  malformed `tool_call`, `delegation`, `external_refs` or `execution` is NOT
+  a `SCHEMA_VIOLATION` (a future version MAY harden this, per D33; the
+  trigger would be a real dispute over a malformed convention field).
 - **Convention fields hash, chain and sign like any other payload content —
   no new verification surface.** The crypto vectors V0–V6/W1 are unaffected
   by construction (the payload was already open); schema cases v09/v10
-  (`vectors/schema/valid/`) pin the canonical field names in the conformance
-  contract.
+  (v1.2) and v11/v12 (v1.4) in `vectors/schema/valid/` pin the canonical
+  field names in the conformance contract.
+
+#### 1.2.5 `payload.external_refs` (array of objects, optional, admitted on every type — v1.4)
+
+An event MAY declare **external references**: pointers to evidence that lives
+outside both the registry operator and the tenant — a file in the end
+client's hands, an order in a third party's system, a message on a mail
+provider's server. Because the referenced evidence is held by a
+disinterested party, a declared reference can be checked by a third party
+even in scenarios where operator and tenant would collude.
+
+```json
+"external_refs": [
+  { "artifact_sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03" },
+  { "system": "shopify", "ref": "5723911058629" },
+  { "message_id_sha256": "b2c76efb2f60c6acd44f4437a3f2f95acb01e73bcb9d4761994c1747db66b0c8" }
+]
+```
+
+Each array member is an object in exactly one of these shapes (extra members
+are allowed; the named member is the REQUIRED one):
+
+| Shape | Meaning |
+|---|---|
+| `{ "artifact_sha256": "<64 lowercase hex>", … }` | SHA-256 fingerprint of a delivered or produced artifact — an attachment, a document, an API body |
+| `{ "system": "<system name>", "ref": "<native id>", … }` | an identifier returned by a third-party system: an order id, a PSP transaction, a CRM record. The `{ref, …}` shape is deliberately consistent with `SubjectRef` and `delegation.parent` |
+| `{ "message_id_sha256": "<64 lowercase hex>", … }` | SHA-256 digest of an email `Message-ID` (canonicalization below) |
+
+Normative rules:
+
+- **Hash stable content only** (`artifact_sha256`): the fingerprint is
+  meaningful only for an object whose bytes do not change after the event —
+  an attachment, a generated document, an API request/response body. An
+  email **body** is NOT stable content: it mutates in transit (transfer
+  encoding, footers, re-signing). For email, declare `message_id_sha256`.
+- **`message_id_sha256` canonicalization**: the hashed byte string is the
+  raw value of the `Message-ID` header, with outer whitespace trimmed,
+  angle brackets **included**, no case-folding, encoded as UTF-8. Two
+  independent implementations MUST produce the same digest from the same
+  header.
+- **The clear `Message-ID` SHOULD NOT be recorded.** A Message-ID is
+  syntactically an email address, so it is a deterministic false positive
+  for personal-data detection tooling — and some mailers embed the sender's
+  real address in it, so it is sometimes actual personal data. The digest
+  preserves third-party falsifiability: whoever holds the email recomputes
+  and compares.
+- **`filename` SHOULD NOT appear in `external_refs`** (or elsewhere in the
+  clear): a filename is human-chosen text entering an append-only registry
+  and may carry personal data invisible to syntactic detection. The
+  recommended form is `artifact_sha256`; when the name itself must be
+  conserved, it goes in `payload.personal` (the §1.2.3 pattern).
+- **Declare identifiers as values, never as map keys.** Detection and
+  reporting tooling masks long numeric object keys, which makes signal
+  paths illegible; `{ "system": "...", "ref": "<id>" }` keeps the id a
+  value.
+- **Declared, never verified.** The declarative semantics of §1.2.2 extends
+  verbatim: ingestion does not resolve, fetch or compare any external
+  reference; consumers MUST NOT treat an unresolved or non-matching
+  reference as tampering. Documentation, reports and verifier output MUST
+  say the reference is **declared** — never "verified", "bound" or
+  "proven". What the registry proves is that the declaration was recorded
+  at reception time (hashed, signed, chained, anchored): an export can
+  declare the fingerprint of any document, but it cannot declare it
+  retroactively.
+- **Honest detection note.** Bare numeric ids of 13–19 digits (e.g. some
+  e-commerce order ids) pass payment-card checksum heuristics in roughly
+  10% of cases: tenants using such ids in `system`/`ref` pairs should
+  expect occasional false-positive personal-data signals. This is a
+  declared limitation of syntactic detection, remedied by per-signal
+  suppression on the operator side — never by weakening detection.
+
+#### 1.2.6 `payload.execution` (object, optional, admitted on every type — v1.4)
+
+```json
+"execution": { "ref": "84211" }
+```
+
+| Member | Level | Meaning |
+|---|---|---|
+| `ref` | REQUIRED when `execution` is present, string | the **source-native run/execution id of the execution that emits THIS event** (Make `{{var.scenario.executionId}}`, n8n `$execution.id`, a custom agent's session id) |
+
+The `{ref, …}` shape is again consistent with `SubjectRef`. Note the
+three-way relation — the three identifiers are frequently confused:
+
+- `execution.ref` — the run id of the event's **own** execution;
+- `delegation.parent.ref` (§1.2.2) — the run id of the **parent** execution
+  that delegated to this one;
+- `x-idempotency-key` — a transport header (§1), never an event field.
+
+`subject.workflow.ref` identifies the workflow **definition**;
+`execution.ref` identifies one **run** of it. With both conventions present,
+each event declares the run it belongs to and the run that spawned it —
+enough for a consumer to reconstruct a declared execution tree downstream.
+The declarative semantics of §1.2.2 applies verbatim: the run id is
+declared, never verified at ingestion, and an unknown or unmatched
+`execution.ref` is not tampering.
 
 ## 2. Canonicalization (D12)
 
@@ -466,8 +575,9 @@ An implementation is conformant when it reproduces:
 - the shredding vector **V6** (`vectors/shredding/`) and the DEK-wrapping
   vector **W1** (`vectors/wrapping/`), for implementations that handle
   `payload.personal` (v1.1),
-- the **23 schema cases** (`vectors/schema/`) — v09/v10 pin the §1.2 payload
-  conventions (`tool_call`, `delegation`),
+- the **25 schema cases** (`vectors/schema/`) — v09/v10 pin the v1.2 payload
+  conventions (`tool_call`, `delegation`), v11/v12 the v1.4 conventions
+  (`external_refs`, `execution`),
 - the **qualified-timestamp vectors** (`vectors/qualified/`, v1.3) for
   implementations that read the §7.1 field: the valid-mark export, the
   no-mark export (byte-identical pre-1.3 behavior), the digest-mismatch and

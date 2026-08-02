@@ -4,6 +4,47 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.4.0 — 2026-08-02
+
+Probative conventions (additive, D33; SPEC.md §1.2.5, §1.2.6, §1):
+
+- `payload.external_refs` (optional array of objects, admitted on every
+  event type): declared references to evidence held outside both the
+  registry operator and the tenant. Three canonical member shapes —
+  `{artifact_sha256}` (SHA-256 of **stable content only**: attachment,
+  document, API body — never an email body), `{system, ref}` (third-party
+  native id, declared as a value, never as a map key),
+  `{message_id_sha256}` (digest of the raw `Message-ID` header value, outer
+  whitespace trimmed, angle brackets included, no case-folding; the clear
+  Message-ID SHOULD NOT be recorded). `filename` SHOULD NOT appear in the
+  clear — `payload.personal` is the place for it (§1.2.3 pattern)
+- `payload.execution` (optional object, admitted on every event type):
+  `ref` (required) — the source-native run id of the execution that emits
+  THIS event. Normative three-way distinction: `execution.ref` (own run) vs
+  `delegation.parent.ref` (parent's run) vs `x-idempotency-key` (transport
+  header, never an event field)
+- Declarative semantics of §1.2.2 extended verbatim to both fields:
+  declared, never resolved or checked at ingestion; an unresolved or
+  non-matching reference is not tampering. Output and derived material MUST
+  say "declared", never "verified"/"bound"/"proven"
+- Success response body (§1, ERROR_CODES.md): `event_hash` added as an
+  additive **echo field** of the `202` — the stored event's hash, echoed on
+  first write and on idempotent replay alike; positional value only (the
+  slot in the dense per-tenant sequence), never called a receipt or proof;
+  error bodies never carry it
+- Declared detection limits: bare numeric ids of 13–19 digits in
+  `system`/`ref` pairs trip card-checksum heuristics in ~10% of cases
+  (suppression on the operator side is the remedy; detection is not
+  weakened)
+- Two new valid schema cases (v11, v12) pin the canonical field names:
+  the schema-case count grows **23 → 25** (12 valid + 13 invalid)
+
+No crypto change and no new obligation: convention fields hash, chain and
+sign like any other payload content — vectors V0–V6, W1, the qualified
+vectors and the export format are untouched; `event.schema.json` is
+unchanged (the payload is open, D30). Verification outcome and exit codes of
+the reference verifier are unchanged.
+
 ## 1.3.0 — 2026-07-27
 
 Dual anchor (additive, D33; SPEC.md §7.1, §8):

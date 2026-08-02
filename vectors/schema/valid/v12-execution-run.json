@@ -1,0 +1,37 @@
+{
+  "description": "v1.4 payload convention (SPEC §1.2.6): payload.execution.ref is the source-native run id of the execution that emits THIS event (n8n $execution.id form), while delegation.parent.ref is the run id of the PARENT execution that delegated — the three-way relation with the x-idempotency-key transport header is normative in §1.2.6. Declared, never verified",
+  "envelope": {
+    "event_type": "workflow_run",
+    "occurred_at": "2026-08-02T09:41:07Z",
+    "actor": {
+      "type": "agent",
+      "id": "n8n-sub-worker",
+      "label": "Enrichment sub-workflow"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "wf_311",
+        "label": "Contact enrichment"
+      },
+      "end_client": {
+        "ref": "beta-corp",
+        "label": "Beta Corp"
+      }
+    },
+    "payload": {
+      "phase": "start",
+      "execution": {
+        "ref": "84211"
+      },
+      "delegation": {
+        "parent": {
+          "ref": "84210"
+        },
+        "root": {
+          "ref": "84203"
+        },
+        "depth": 2
+      }
+    }
+  }
+}

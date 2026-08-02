@@ -1,4 +1,4 @@
-// Qualified-timestamp vectors (SPEC §7.1/§8 rule 8, v1.3) — the spec-side
+// Qualified-timestamp vectors (SPEC §7.1/§8 rule 11, v1.3) — the spec-side
 // gate stays implementation-independent: no ASN.1 parser here. What a third
 // party can check from the published JSON alone, it checks: the field shape,
 // the size cap, and the fact that the RFC 3161 messageImprint — the raw
@@ -13,7 +13,7 @@ const vec = (p: string) =>
 const raw = (p: string) => Deno.readFileSync(new URL(`../vectors/qualified/${p}`, import.meta.url));
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 const b64ToBytes = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-const MAX_TST_BYTES = 64 * 1024; // §8 rule 8 reference cap
+const MAX_TST_BYTES = 64 * 1024; // §8 rule 11 reference cap
 
 Deno.test("qualified vectors: field shape and size cap", () => {
   for (

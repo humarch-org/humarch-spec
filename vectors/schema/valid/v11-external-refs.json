@@ -1,5 +1,5 @@
 {
-  "description": "v1.4 payload convention (SPEC §1.2.5): agent_action with payload.external_refs — the three canonical member shapes: artifact_sha256 (fingerprint of stable content), {system, ref} (third-party native id, declared as a value), message_id_sha256 (digest of the Message-ID header, angle brackets included — the clear Message-ID SHOULD NOT be recorded). Declarative references: never resolved or checked at ingestion",
+  "description": "v1.4 payload convention (SPEC 1.2.5): agent_action with payload.external_refs - the three canonical member shapes: artifact_sha256 (fingerprint of stable content), {system, ref} (third-party native id, declared as a value), message_id_sha256 (SHA-256 of the msg-id token of the header <20260802094107.5A2C@mail.example.com>, per the 1.2.5 algorithm; pinned by vectors/message-id/). The clear Message-ID SHOULD NOT be recorded. Declarative references: never resolved or checked at ingestion",
   "envelope": {
     "event_type": "agent_action",
     "actor": {
@@ -39,7 +39,7 @@
           "ref": "5723911058629"
         },
         {
-          "message_id_sha256": "b2c76efb2f60c6acd44f4437a3f2f95acb01e73bcb9d4761994c1747db66b0c8"
+          "message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50"
         }
       ]
     }

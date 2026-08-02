@@ -14,8 +14,12 @@ Probative conventions (additive, D33; SPEC.md §1.2.5, §1.2.6, §1):
   `{artifact_sha256}` (SHA-256 of **stable content only**: attachment,
   document, API body — never an email body), `{system, ref}` (third-party
   native id, declared as a value, never as a map key),
-  `{message_id_sha256}` (digest of the raw `Message-ID` header value, outer
-  whitespace trimmed, angle brackets included, no case-folding; the clear
+  `{message_id_sha256}` (the digest of an email's Message-ID under the
+  normative four-step algorithm of §1.2.5: select — zero or several
+  `Message-ID` fields means the field is not declared — unfold per RFC 5322
+  §2.2.3, parse the §3.6.4 `msg-id` production and take the bracketed token
+  discarding CFWS, hash it UTF-8 with no case-folding; new vectors
+  `vectors/message-id/` pin it, omission cases included; the clear
   Message-ID SHOULD NOT be recorded). `filename` SHOULD NOT appear in the
   clear — `payload.personal` is the place for it (§1.2.3 pattern)
 - `payload.execution` (optional object, admitted on every event type):
@@ -38,12 +42,41 @@ Probative conventions (additive, D33; SPEC.md §1.2.5, §1.2.6, §1):
   weakened)
 - Two new valid schema cases (v11, v12) pin the canonical field names:
   the schema-case count grows **23 → 25** (12 valid + 13 invalid)
+- Export rules 8, 9 and 10 (§8), from an independent audit of this release:
+  `sequence_number` and `event_id` are unique **within one export** and a
+  repetition is malformed input, not a tampering verdict; and verification
+  status is a property of the verified **prefix**, never of a sequence
+  interval — deriving "verified" from `sequence_number ≤ verified_through`
+  credits a duplicated, unverified event with its twin's integrity; and
+  export-supplied strings are hostile input at the point of display
 
-No crypto change and no new obligation: convention fields hash, chain and
-sign like any other payload content — vectors V0–V6, W1, the qualified
-vectors and the export format are untouched; `event.schema.json` is
-unchanged (the payload is open, D30). Verification outcome and exit codes of
-the reference verifier are unchanged.
+**No crypto change**: convention fields hash, chain and sign like any other
+payload content — vectors V0–V6, W1 and the qualified vectors reproduce
+byte-identically, and `event.schema.json` is unchanged (the payload is open,
+D30). Exports produced before 1.4.0 remain valid and verify to the same
+outcome.
+
+**New obligations, stated plainly** (this release is not purely additive for
+implementers, and the reference verifier's behaviour changes on inputs it
+previously assessed):
+
+- export rules 8, 9 and 10 add MUSTs for verifiers and consumers: uniqueness
+  of `sequence_number`/`event_id` within an export, neutralization of
+  export-supplied strings at the point of display, and verification status
+  carried positionally rather than as a sequence interval;
+- consequently the reference verifier now answers **exit 4 (malformed
+  input)** for two classes of document it used to assess: an export carrying
+  a duplicate `sequence_number` or `event_id`, and one carrying a control,
+  format or line/paragraph-separator character in a machine field.
+  Provider-supplied display names (`tsa_name`) are held only to the
+  control-character rule and are neutralized at display instead;
+- implementations that render verdicts should re-test their output path
+  against the rule 9 discipline — including the text of parser error
+  messages, which typically quote the offending bytes verbatim.
+
+These changes come from an independent audit of this release and from the
+adversarial review of its remedies (2026-08-02), both run before
+publication.
 
 ## 1.3.0 — 2026-07-27
 
@@ -59,7 +92,8 @@ Dual anchor (additive, D33; SPEC.md §7.1, §8):
   aggregate; every event verifiably contained in it inherits that
   anteriority through deterministic, reproducible recomputation. Stating
   that each event carries its own qualified timestamp is forbidden
-- Normative export rule (§8 rule 8): the token is the authoritative
+- Normative export rule (§8 rule 8 at the time of 1.3.0, renumbered to rule
+  11 by the 1.4.0 export rules): the token is the authoritative
   artifact, metadata is convenience; presence of the field asserts nothing —
   qualification is established in verification; parse caps and declared
   `invalid` on unreadable tokens

@@ -20,7 +20,7 @@ Humarch core.
 | [`SPEC.md`](SPEC.md) | Normative spec: JCS canonicalization, `event_hash` pre-image, Ed25519 signature, per-tenant genesis, daily-anchor formula, OTS lifecycle, `humarch-export/v1` |
 | [`ERROR_CODES.md`](ERROR_CODES.md) | Stable error registry of the ingestion API, with retry semantics |
 | [`KEYS.md`](KEYS.md) | Current and historical public signing keys (self-certifying ids) |
-| [`vectors/`](vectors/README.md) | Conformance vectors V0–V6, W1 + 25 schema cases — the contract every implementation must reproduce |
+| [`vectors/`](vectors/README.md) | Conformance vectors — the contract every implementation must reproduce. See [`vectors/README.md`](vectors/README.md) for the authoritative list (crypto V0–V6 and W1, the schema cases, the qualified-timestamp vectors, the message-id vectors) |
 | `CHANGELOG.md` | Versioned history of the spec (SemVer, D33) |
 
 ## Verify an export

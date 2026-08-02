@@ -1,0 +1,113 @@
+[
+  {
+    "description": "plain header: the msg-id token is hashed verbatim, angle brackets included",
+    "headers": [
+      "<20260802094107.5A2C@mail.example.com>"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@mail.example.com>",
+    "expect_message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50"
+  },
+  {
+    "description": "outer whitespace (leading SP, trailing HTAB) is not part of the token",
+    "headers": [
+      " <20260802094107.5A2C@mail.example.com>\t"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@mail.example.com>",
+    "expect_message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50"
+  },
+  {
+    "description": "folded header with a leading comment: unfolding and CFWS removal yield the same digest as the plain case",
+    "headers": [
+      "(audit)\r\n\t<20260802094107.5A2C@mail.example.com>"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@mail.example.com>",
+    "expect_message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50"
+  },
+  {
+    "description": "a comment containing angle brackets is discarded - naive first-'<'-to-last-'>' extraction would hash a token that does not exist",
+    "headers": [
+      "(<not@a.real.id>) <20260802094107.5A2C@mail.example.com>"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@mail.example.com>",
+    "expect_message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50"
+  },
+  {
+    "description": "no case-folding: the lowercased id is a DIFFERENT message and a different digest",
+    "headers": [
+      "<20260802094107.5a2c@mail.example.com>"
+    ],
+    "expect_msg_id": "<20260802094107.5a2c@mail.example.com>",
+    "expect_message_id_sha256": "7e0532c2235ab1f3fa20254300799392f763d6fd66fa2528728a3ad5c54f9472"
+  },
+  {
+    "description": "domain literal (no-fold-literal) id-right",
+    "headers": [
+      "<20260802094107.5A2C@[192.0.2.10]>"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@[192.0.2.10]>",
+    "expect_message_id_sha256": "4ad2c99fbcb4dc4159b06b757dd458bf516239bd3556c7dd5b6c1a641881b790"
+  },
+  {
+    "description": "domain literal containing an angle bracket: dtext admits it, and the token ends at the closing bracket",
+    "headers": [
+      "<20260802094107.5A2C@[x>y]>"
+    ],
+    "expect_msg_id": "<20260802094107.5A2C@[x>y]>",
+    "expect_message_id_sha256": "58be60c8520e8414c15c331bc156998ec0282f0a04b68c0cfbd068d347fcaba2"
+  },
+  {
+    "description": "domain literal with an inner space: dtext does not admit it, the field is NOT declared",
+    "headers": [
+      "<20260802094107.5A2C@[192.0.2.10 ]>"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "domain literal with a non-ASCII byte: dtext does not admit it, the field is NOT declared (the token is US-ASCII by construction)",
+    "headers": [
+      "<20260802094107.5A2C@[192.0.2.é]>"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "TWO Message-ID header fields: the field is NOT declared (libraries differ on which duplicate they surface)",
+    "headers": [
+      "<20260802094107.5A2C@mail.example.com>",
+      "<20260802094107.5A2D@mail.example.com>"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "NO Message-ID header at all: the field is NOT declared",
+    "headers": [],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "no angle brackets: not parsable as msg-id, the field is NOT declared",
+    "headers": [
+      "20260802094107.5A2C@mail.example.com"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "trailing garbage after the token: not parsable, the field is NOT declared",
+    "headers": [
+      "<20260802094107.5A2C@mail.example.com> extra"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  },
+  {
+    "description": "unterminated comment: not parsable, the field is NOT declared",
+    "headers": [
+      "(unterminated <20260802094107.5A2C@mail.example.com>"
+    ],
+    "expect_msg_id": null,
+    "expect_message_id_sha256": null
+  }
+]

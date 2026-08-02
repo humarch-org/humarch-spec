@@ -235,9 +235,13 @@ even in scenarios where operator and tenant would collude.
 "external_refs": [
   { "artifact_sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03" },
   { "system": "shopify", "ref": "5723911058629" },
-  { "message_id_sha256": "b2c76efb2f60c6acd44f4437a3f2f95acb01e73bcb9d4761994c1747db66b0c8" }
+  { "message_id_sha256": "cd71135384f140d325708ac71da6a6705a603e362042abfcc956c9781a589e50" }
 ]
 ```
+
+(the `message_id_sha256` above is the digest of the header
+`<20260802094107.5A2C@mail.example.com>`, computed with the algorithm
+below and pinned by `vectors/message-id/`.)
 
 Each array member is an object in exactly one of these shapes (extra members
 are allowed; the named member is the REQUIRED one):
@@ -255,11 +259,49 @@ Normative rules:
   an attachment, a generated document, an API request/response body. An
   email **body** is NOT stable content: it mutates in transit (transfer
   encoding, footers, re-signing). For email, declare `message_id_sha256`.
-- **`message_id_sha256` canonicalization**: the hashed byte string is the
-  raw value of the `Message-ID` header, with outer whitespace trimmed,
-  angle brackets **included**, no case-folding, encoded as UTF-8. Two
+- **`message_id_sha256` canonicalization (normative algorithm).** Two
   independent implementations MUST produce the same digest from the same
-  header.
+  message. Producers apply, in this order:
+
+  0. **The input** is the **raw field body as transmitted**: the octets
+     between the colon of the header field and the CRLF that terminates it,
+     before any library-side normalization. Field names match
+     case-insensitively (`Message-ID`, `MESSAGE-ID`, `message-id` are the
+     same field). An implementation whose mail API cannot give it that —
+     or cannot enumerate **every** instance of the field — MUST NOT declare
+     `message_id_sha256`: a single-value accessor silently hides the
+     duplicate case that step 1 exists to refuse.
+  1. **Select** the message's `Message-ID` header fields. If there is **no**
+     such field, or **more than one**, the field is NOT declared — omit
+     `message_id_sha256` rather than choose (mail libraries differ in which
+     duplicate they surface, and one of them concatenating or reordering
+     would silently change the digest).
+  2. **Unfold** the field body per RFC 5322 §2.2.3: remove every CRLF that
+     is immediately followed by WSP (space or HTAB), keeping the WSP. The
+     rule is CRLF-only, deliberately: a message stored with bare-LF line
+     endings is no longer the message as transmitted, and a folded header
+     read from such a copy will not parse in step 3 — the field is then
+     omitted, which is the intended fail-closed outcome. Declaring a digest
+     computed over a locally re-lined header would be worse: two honest
+     implementations would disagree and neither would know it.
+  3. **Parse** the unfolded body against the RFC 5322 §3.6.4 `msg-id`
+     production — `[CFWS] "<" id-left "@" id-right ">" [CFWS]`, where
+     `id-left` is `dot-atom-text` and `id-right` is `dot-atom-text` or a
+     `no-fold-literal` (`"[" *dtext "]"`) — and take the
+     `"<" id-left "@" id-right ">"` token, angle brackets included.
+     Comments and folding whitespace (CFWS) are discarded, **including
+     comments that themselves contain angle brackets**. The **obsolete**
+     productions (`obs-id-left`, `obs-id-right`, obsolete CFWS) are NOT
+     accepted, and neither is any body with characters left over after the
+     token and its trailing CFWS: whatever does not match the production in
+     full is not parsable, and the field is omitted. Under this rule the
+     token is US-ASCII by construction.
+  4. **Hash** exactly the bytes of that token, UTF-8 encoded (a no-op for
+     case-folding** and no other normalization:
+     `message_id_sha256 = hex(SHA-256(UTF8(msg-id)))`.
+
+  Vectors `vectors/message-id/` pin this rule, the omission cases
+  included.
 - **The clear `Message-ID` SHOULD NOT be recorded.** A Message-ID is
   syntactically an email address, so it is a deterministic false positive
   for personal-data detection tooling — and some mailers embed the sender's
@@ -533,7 +575,40 @@ Normative rules:
    likewise an envelope and stays opaque to anyone without the subject DEK
    (D51). Neither affects verification: hashes are computed on the stored
    form (B8 rule, §1.1).
-8. `qualified_timestamp` (v1.3) is OPTIONAL and additive: exports without it
+8. **Within one export, `sequence_number` and `event_id` are unique** (the
+   registry holds one event per `(tenant_id, sequence_number)` and
+   `event_id` is a primary key). A repetition of either is **malformed
+   input**, not a tampering verdict: verifiers MUST refuse such a document
+   with their malformed-input outcome rather than verify it.
+9. **Export-supplied strings are hostile input at the point of DISPLAY.**
+   Every string an export carries — identifiers, statuses, timestamps,
+   provider names — may have been chosen by an attacker. A verifier MUST
+   NOT emit them to a terminal, a log or a report without neutralizing the
+   characters that can drive or reorder a display: Unicode categories Cc
+   (controls), Cf (format, the bidirectional overrides and isolates among
+   them), Zl and Zp (line and paragraph separators). A bidi override inside
+   an `event_type` renders as a reversed line and can spell out a verdict
+   the verifier never reached. Machine fields (`event_id`, `tenant_id`,
+   `event_type`, `source`, timestamps, hex digests) MUST NOT contain any of
+   those characters and a verifier MAY refuse such a document as malformed
+   input — the reference verifier does. Provider-supplied display names
+   (`qualified_timestamp.tsa_name`) are held only to the control-character
+   rule, because a legitimate name may carry a directional mark, and are
+   neutralized at display instead. The same discipline applies to the text
+   of parser and I/O error messages: a JSON parser typically quotes the
+   offending bytes verbatim, so echoing its message re-opens the hole a
+   verifier just closed.
+10. **Verification status is a property of the verified PREFIX, never of a
+   sequence interval.** A verifier walks the events ordered by
+   `sequence_number` and stops at the first failure, so what it has
+   verified is the leading run of events it actually processed. Deriving
+   "this event is verified" from `sequence_number ≤ verified_through` is
+   wrong wherever the numbering is not strictly increasing — with a
+   duplicated number it credits an unverified event with the integrity of
+   its twin. Consumers and derived tooling (search, indexing, reporting)
+   MUST carry the verified/unverified distinction positionally, and MUST
+   present anything outside that prefix as not covered by integrity.
+11. `qualified_timestamp` (v1.3) is OPTIONAL and additive: exports without it
    are the pre-1.3 form and verify identically. `token_base64` is the
    authoritative artifact — `tsa_name`, `policy_oid` and `gen_time` are
    convenience metadata that verifiers MUST take from the token itself, and
@@ -578,6 +653,9 @@ An implementation is conformant when it reproduces:
 - the **25 schema cases** (`vectors/schema/`) — v09/v10 pin the v1.2 payload
   conventions (`tool_call`, `delegation`), v11/v12 the v1.4 conventions
   (`external_refs`, `execution`),
+- the **message-id vectors** (`vectors/message-id/`, v1.4) for
+  implementations that declare `message_id_sha256`: the §1.2.5 algorithm on
+  folded, commented and duplicated headers, omission cases included,
 - the **qualified-timestamp vectors** (`vectors/qualified/`, v1.3) for
   implementations that read the §7.1 field: the valid-mark export, the
   no-mark export (byte-identical pre-1.3 behavior), the digest-mismatch and

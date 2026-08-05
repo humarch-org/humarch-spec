@@ -687,6 +687,20 @@ Normative rules:
    MUST cap the token size they are willing to parse (the reference cap is
    64 KiB) and MUST treat an unreadable token as a declared `invalid`,
    never as a verification failure of the export.
+13. **Omission of unavailable proof artifacts is defined exporter behavior,
+   and it is symmetric.** Every proof artifact of this format rides as the
+   resolved content of an archived object — the `.ots` receipt
+   (`ots_file_base64`), the qualified timestamp of §7.1 and the chain seal
+   of §7.2 (both via `token_base64`). An exporter that cannot resolve the
+   archived object at generation time MUST omit the corresponding optional
+   field or element rather than emit a metadata-only entry (metadata alone
+   would claim a proof without carrying it), and SHOULD record the omission
+   in its own operational log; the omission rule is the SAME for all three
+   artifacts — none of them is dropped more silently than the others. For
+   the document itself the omission is not a defect: the export remains
+   valid and verifies as the corresponding earlier or artifact-less form
+   (rules 3, 11 and 12), and the missing proof can ride in a later export
+   of the same range once the object resolves again.
 
 A verifier processes the export as in the reference implementation
 (`humarch-verify`): recompute component hashes (JCS from parsed values),

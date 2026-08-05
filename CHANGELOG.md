@@ -4,6 +4,20 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.5.1 — 2026-08-06
+
+Clarification only (no format change, no new field, no vector change; §8):
+
+- new §8 rule 13: an exporter that cannot resolve an archived proof object
+  at export time omits the corresponding optional field or element — never
+  a metadata-only entry — and this omission rule is **symmetric** across
+  the three proof artifacts (`.ots` receipt, §7.1 qualified timestamp,
+  §7.2 chain seal): none of them is dropped more silently than the others.
+  Exports with an omitted artifact remain valid and verify as the
+  corresponding earlier or artifact-less form. This documents behavior the
+  reference exporter and verifier already had (rules 3, 11 and 12);
+  nothing changes for implementers.
+
 ## 1.5.0 — 2026-08-05
 
 On-demand chain seal (additive, D33; SPEC.md §7.2, §8):

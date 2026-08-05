@@ -136,6 +136,28 @@ Deno.test("SPEC §7.2: the binding step names the RECOMPUTED head within the ver
   );
 });
 
+Deno.test("SPEC §8 rule 13 (1.5.1): unavailable-artifact omission is defined and SYMMETRIC", () => {
+  // Audit F3 on the on-demand seal (2026-08-05, light form chosen by the
+  // user): the same fetch-miss that drops a seal element also drops the
+  // `.ots` receipt and the qualified timestamp — the spec must say the
+  // omission is defined behavior and the SAME for all three artifacts, so
+  // no reader concludes one proof is dropped "more silently" than another.
+  // Prose only: no field, no format change, wording pinned here.
+  const spec = Deno.readTextFileSync(new URL("../SPEC.md", import.meta.url))
+    .replace(/\r\n/g, "\n");
+  const at13 = spec.indexOf("13. **Omission of unavailable proof artifacts");
+  assert(at13 >= 0, "§8 rule 13 must exist");
+  const rule13 = spec.slice(at13, spec.indexOf("\nA verifier processes", at13))
+    .replace(/\s+/g, " ");
+  assert(/MUST omit/.test(rule13), "the omission is a MUST, not a habit");
+  assert(/metadata-only entry/.test(rule13), "metadata-only entries are ruled out");
+  for (const artifact of ["`.ots` receipt", "qualified timestamp", "chain seal"]) {
+    assert(rule13.includes(artifact), `rule 13 names the ${artifact}`);
+  }
+  assert(/SAME for all three/.test(rule13), "the symmetry is explicit");
+  assert(/remains valid/.test(rule13), "an omitted artifact is not a defect of the document");
+});
+
 Deno.test("seal vectors: tsa-trust document shape (humarch-tsa/v1)", () => {
   const doc = vec("tsa-trust-seal.json");
   assertEquals(doc.format, "humarch-tsa/v1");

@@ -530,6 +530,55 @@ reached, the operator's declared strategy is to re-timestamp the aggregates
 under a then-current qualified TSA (an additive operation on the same
 hashes), exactly as key rotation is declared in §6.
 
+### 7.2 On-demand chain seal (RFC 3161, optional — v1.5, additive)
+
+A registry MAY additionally issue, on request, an **on-demand chain seal**:
+an RFC 3161 timestamp token (same profile as §7.1) issued on the **32 bytes
+of one `event_hash`** — the tenant chain's **head** at sealing time. The
+seal closes the intra-day window the daily anchor leaves open: the daily
+registry (§7) is unchanged and unaware of it, and the nightly anchor keeps
+covering the same events (an older independent proof only ever adds value).
+
+Semantics (normative): **the presumption attaches to the data the token
+marks — the chain-head `event_hash` at sealing time.** Every event
+preceding that head in the chain (through the §5 recomputation,
+deterministic and reproducible by anyone) inherits that anteriority through
+derivation. A seal covers a chain **prefix**; implementations and derived
+material MUST NOT state or imply that each event carries its own qualified
+timestamp, and MUST speak of "the seal of the chain up to sequence N",
+never of per-event marks.
+
+Verification (any RFC 3161 tooling works — the reference verifier is not
+privileged):
+
+1. the token parses as CMS `SignedData` carrying a `TSTInfo` (§7.1 step 1);
+2. `TSTInfo.messageImprint` (SHA-256) equals the event hash **recomputed
+   from the §5 pre-image at the declared `sequence_number`, within the
+   verified prefix of the export (§8 rule 10)** — NOT the event's declared
+   `event_hash` field, and NOT any value carried by the seal element
+   itself. Those fields are supplied by whoever produced the document:
+   binding the token to them lets a genuine (hash, token) pair lifted from
+   a published export vouch for a fabricated chain. Verifiers MUST bind to
+   the recomputed value, and MUST treat a seal whose declared sequence the
+   export does not contain — or that falls beyond the verified prefix — as
+   a declared `invalid` (the chain up to it is not proven, so the prefix
+   inheritance claim does not hold);
+3. the TSA's signature verifies against the embedded signer certificate
+   (§7.1 step 3);
+4. the signer chains to a TSA the verifying party trusts (§7.1 step 4).
+   E.g. `openssl ts -verify -digest <recomputed event_hash> -token_in
+   -in token.tst -CAfile <TSA CA chain>` — the digest passed on the command
+   line is the value recomputed at step 2, never one read from the file.
+
+Outcomes are exactly the §7.1 ones: invalid / valid-but-untrusted / valid,
+each **declared and additive** — none changes the outcome of the §5/§7
+verification, and an export without seals is the pre-1.5 form and stays
+fully valid. A genuine seal proves existence of the sealed head **at its
+own `genTime`**; a `genTime` earlier than the sealed event's `received_at`
+is incoherent and verifiers SHOULD say so explicitly. The §7.1 lifecycle
+note (~20-year horizon, additive re-timestamping) applies verbatim to
+seals.
+
 ## 8. Export format `humarch-export/v1` (D27)
 
 A single self-contained JSON document (allegeable as-is):
@@ -552,6 +601,11 @@ A single self-contained JSON document (allegeable as-is):
           token_base64,  (DER TimeStampToken)
           tsa_name, policy_oid, gen_time
       }
+  } ],
+  "chain_seals"?: [ {   (v1.5, §7.2 — ordered by sequence_number ascending)
+      sequence_number,   (the sealed chain head)
+      token_base64,      (DER TimeStampToken)
+      tsa_name, policy_oid, gen_time
   } ]
 }
 ```
@@ -617,6 +671,22 @@ Normative rules:
    the token size they are willing to parse (the reference cap is 64 KiB)
    and MUST treat an unreadable token as a declared `invalid`, never as a
    verification failure of the export.
+12. `chain_seals` (v1.5) is OPTIONAL and additive: exports without it are
+   the pre-1.5 form and verify identically. Elements are ordered by
+   `sequence_number` ascending and each sealed sequence appears **at most
+   once** (one seal per head); a repetition **or a misordering** is
+   **malformed input**, rule-8 class — unlike rule 4's event/anchor
+   ordering (an exporter obligation), this one binds verifiers too, and
+   the reference verifier refuses such a document. `token_base64` is the
+   authoritative artifact — `tsa_name`,
+   `policy_oid` and `gen_time` are convenience metadata that verifiers MUST
+   take from the token itself; note the element deliberately carries **no
+   event hash**: the binding target exists only as the recomputed value of
+   §7.2 step 2. The presence of the field asserts nothing: qualification is
+   a property of the issuing TSA, established in verification. Verifiers
+   MUST cap the token size they are willing to parse (the reference cap is
+   64 KiB) and MUST treat an unreadable token as a declared `invalid`,
+   never as a verification failure of the export.
 
 A verifier processes the export as in the reference implementation
 (`humarch-verify`): recompute component hashes (JCS from parsed values),

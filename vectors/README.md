@@ -11,6 +11,7 @@ byte-for-byte before being considered conformant.
 | `anchors/` | V4 | daily-anchor aggregate formula (D9) |
 | `negative/` | V5a–V5c | tampering MUST be detected at the exact sequence; escape differences MUST NOT be flagged |
 | `qualified/` | v1.3 exports + raw `.tst` tokens | the optional RFC 3161 qualified timestamp on the daily aggregate (§7.1): valid mark, digest mismatch, malformed token, valid-but-untrusted TSA, and the no-mark export that must behave exactly as pre-1.3 |
+| `seal/` | v1.5 exports + raw `.tst` tokens | the optional on-demand chain seal on the chain-head `event_hash` (§7.2, §8 rule 12): valid seal, imprint mismatch, malformed token, over-cap token, sequence not present in the export, plus the `humarch-tsa/v1` trust fixture — binding is to the value recomputed within the verified prefix, and the no-seal export must behave exactly as pre-1.5 |
 | `message-id/` | 14 cases | the §1.2.5 `message_id_sha256` algorithm: raw header field bodies (folded, commented, duplicated, unparsable) → the msg-id token and its digest, or `null` when the rule says the field must not be declared |
 | `schema/` | 25 cases | ingestion envelope validation: 12 valid, 13 invalid with the JSON Pointer of the expected first error (v09/v10 pin the v1.2 payload conventions `tool_call`/`delegation`, v11/v12 the v1.4 conventions `external_refs`/`execution`, SPEC §1.2) |
 | `shredding/` | V6 | `payload.personal` envelope (AES-256-GCM, AAD = `humarch:pii:v1:<subject>`): hashes on the stored form, verification without decryption, shred changes no byte (B8 §8.9) |

@@ -4,6 +4,44 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.5.0 — 2026-08-05
+
+On-demand chain seal (additive, D33; SPEC.md §7.2, §8):
+
+- new §7.2: an **on-demand chain seal** — an RFC 3161 timestamp token
+  (§7.1 profile) issued on the 32 bytes of ONE `event_hash`, the tenant
+  chain's **head** at sealing time. Closes the intra-day window the daily
+  anchor leaves open; the daily registry (§7) is unchanged and unaware of
+  it. Normative semantics: the art. 42 presumption attaches to the chain
+  head at sealing time; every prior event inherits that anteriority through
+  deterministic, reproducible recomputation — a seal covers a chain
+  **prefix**, never per-event marks
+- binding rule (§7.2 step 2): verifiers MUST bind the token to the event
+  hash **recomputed from the §5 pre-image at the declared sequence, within
+  the verified prefix** (§8 rule 10) — never to the event's declared
+  `event_hash` field or to anything the seal element carries; a seal whose
+  sequence the export does not contain, or that falls beyond the verified
+  prefix, is a declared `invalid`
+- export format (§8): new OPTIONAL top-level array `chain_seals`
+  (`{sequence_number, token_base64, tsa_name, policy_oid, gen_time}`,
+  ordered, one seal per head), governed by the new rule 12 — token
+  authoritative, metadata convenience, 64 KiB reference parse cap,
+  unreadable token ⇒ declared `invalid`, never a verification failure. The
+  element deliberately carries **no event hash**: the binding target exists
+  only as the recomputed value
+- new vectors `vectors/seal/` (valid / imprint-mismatch / malformed /
+  oversize / unknown-sequence, plus the raw tokens and a `humarch-tsa/v1`
+  trust fixture); the qualified 1.3 vectors reproduce byte-identically
+
+**No crypto change**: hashing, chaining, signing, the daily anchor and the
+qualified timestamp of §7.1 are untouched — vectors V0–V6, W1, the 25 schema
+cases and the qualified vectors reproduce byte-identically, and
+`event.schema.json` is unchanged. Exports produced before 1.5.0 remain valid
+and verify to the same outcome; verification outcome and exit codes of the
+reference verifier are unchanged (the check is additive). A malformed
+`chain_seals` field (wrong shape, duplicate or unordered sealed sequences)
+is malformed input, rule-8 class.
+
 ## 1.4.0 — 2026-08-02
 
 Probative conventions (additive, D33; SPEC.md §1.2.5, §1.2.6, §1):

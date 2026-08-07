@@ -4,6 +4,37 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.6.0 — 2026-08-06
+
+Self-declaration of omitted proof artifacts (additive, D33; SPEC.md §8):
+
+- new OPTIONAL top-level array `unavailable_artifacts` (§8 rule 14): the
+  **single** mechanism by which an exporter declares the proof artifacts it
+  omitted under rule 13, for all three at once — `{"kind": "ots_receipt" |
+  "qualified_timestamp", "anchor_date"}` and `{"kind": "chain_seal",
+  "sequence_number"}`. Elements carry no other member, and deliberately no
+  free-text reason: an exporter-supplied string is hostile input at the
+  point of display (rule 9), and both coordinates already exist in the
+  format. Exports without the array are the pre-1.6 form and verify
+  identically
+- normative semantics: **a declaration is neither evidence nor an
+  exemption.** It is an assertion by whoever produced the document about
+  that producer's own operational state, and that producer may be the
+  adversary — so an attacker who strips a genuine proof and adds the
+  matching declaration MUST obtain exactly the outcome of the plain
+  absence. The outcome, and the reference verifier's exit code, MUST be
+  identical to those of the same document with the array removed; the
+  absence of a declaration likewise asserts nothing
+- form: a repeated coordinate, an unknown `kind`, a coordinate of the wrong
+  shape or one that does not belong to its kind is malformed input (rule-8
+  class); the ordering binds exporters only (rule-4 class)
+- rule 13 emended, not contradicted: omission stays the behavior (never a
+  metadata-only entry) and stays symmetric across the three artifacts; rule
+  14 only lets the document say which omissions happened
+- new vectors `vectors/unavailable/`: the declaring export and its
+  declaration-free twin (same events, same verdict) plus the four malformed
+  cases. All pre-1.6 vectors are byte-identical
+
 ## 1.5.1 — 2026-08-06
 
 Clarification only (no format change, no new field, no vector change; §8):

@@ -147,7 +147,9 @@ Deno.test("SPEC §8 rule 13 (1.5.1): unavailable-artifact omission is defined an
     .replace(/\r\n/g, "\n");
   const at13 = spec.indexOf("13. **Omission of unavailable proof artifacts");
   assert(at13 >= 0, "§8 rule 13 must exist");
-  const rule13 = spec.slice(at13, spec.indexOf("\nA verifier processes", at13))
+  // Bounded at rule 14 (1.6.0): the declaration mechanism must never be able
+  // to satisfy these assertions on rule 13's behalf.
+  const rule13 = spec.slice(at13, spec.indexOf("\n14. ", at13))
     .replace(/\s+/g, " ");
   assert(/MUST omit/.test(rule13), "the omission is a MUST, not a habit");
   assert(/metadata-only entry/.test(rule13), "metadata-only entries are ruled out");

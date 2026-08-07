@@ -606,7 +606,12 @@ A single self-contained JSON document (allegeable as-is):
       sequence_number,   (the sealed chain head)
       token_base64,      (DER TimeStampToken)
       tsa_name, policy_oid, gen_time
-  } ]
+  } ],
+  "unavailable_artifacts"?: [   (v1.6, rule 14 — what rule 13 omitted)
+      { "kind": "ots_receipt"        , "anchor_date": <YYYY-MM-DD> } |
+      { "kind": "qualified_timestamp", "anchor_date": <YYYY-MM-DD> } |
+      { "kind": "chain_seal"         , "sequence_number": N }
+  ]
 }
 ```
 
@@ -700,7 +705,54 @@ Normative rules:
    the document itself the omission is not a defect: the export remains
    valid and verifies as the corresponding earlier or artifact-less form
    (rules 3, 11 and 12), and the missing proof can ride in a later export
-   of the same range once the object resolves again.
+   of the same range once the object resolves again. What the document
+   does not say by itself is WHICH omissions happened: a reader cannot
+   tell "this proof never existed" from "it existed and did not resolve".
+   Rule 14 gives exporters the one mechanism to say so. It emends this
+   rule without contradicting it — the omission remains the behavior, and
+   a declaration only documents it.
+14. **`unavailable_artifacts` (v1.6) is the single, OPTIONAL mechanism by
+   which an exporter declares what it omitted under rule 13**, and it is
+   additive: exports without it are the pre-1.6 form and verify
+   identically. One element per omitted artifact, in exactly one of three
+   shapes — `{"kind": "ots_receipt", "anchor_date": <YYYY-MM-DD>}`,
+   `{"kind": "qualified_timestamp", "anchor_date": <YYYY-MM-DD>}`,
+   `{"kind": "chain_seal", "sequence_number": N}` — carrying no other
+   member, and in particular no free-text reason: an exporter-supplied
+   string is hostile input at the point of display (rule 9), and the
+   coordinates above already exist in this format. This array is not an
+   extension point, but a verifier MUST ignore a member it does not know
+   rather than refuse it — otherwise a later minor would break every
+   deployed verifier — and MUST NOT display one, for the same rule-9 reason
+   that keeps free text out of the shapes above. Exporters MUST NOT
+   repeat a `(kind, coordinate)` pair and SHOULD order elements by kind as
+   listed here, then by coordinate ascending. A repetition, an unknown
+   `kind`, a coordinate of the wrong shape, or a coordinate that does not
+   belong to its kind is **malformed input**, rule-8 class — the ordering,
+   like rule 4's, binds exporters only.
+
+   **A declaration is neither evidence nor an exemption.** It is an
+   assertion by whoever produced the document about that producer's own
+   operational state, and whoever produced the document may be the
+   adversary. An attacker who strips a genuine proof and adds the matching
+   declaration MUST obtain **exactly** the outcome of the plain absence:
+   for a **well-formed** array, the verification outcome — and, for the
+   reference verifier, the exit code — MUST be identical to the outcome for
+   the same document with this array removed. A malformed array is
+   malformed input under the paragraph above, and refusing to read such a
+   document is that refusal and not a verdict about its proofs: this
+   requirement governs what a declaration may do to a verification, never
+   whether a document parses. Verifiers MUST NOT treat a declared artifact
+   as present, as proven to have existed, or as softening any conclusion
+   the document earns without the array — including the case where the
+   document **contradicts itself** by carrying an artifact it also declares
+   unavailable, which changes no outcome and which a verifier SHOULD show
+   for what it is. The converse holds too: the ABSENCE of a
+   declaration asserts nothing, since an exporter of an earlier version —
+   or one that never attempted the resolution — omits silently, as rule 13
+   allows. A verifier MAY present the declared list, and the reference
+   verifier does, as **declared facts naming who is speaking**, never as a
+   finding of its own.
 
 A verifier processes the export as in the reference implementation
 (`humarch-verify`): recompute component hashes (JCS from parsed values),
@@ -745,6 +797,12 @@ An implementation is conformant when it reproduces:
   no-mark export (byte-identical pre-1.3 behavior), the digest-mismatch and
   malformed-token exports (declared `invalid`), and the valid-but-untrusted
   TSA case (declared, no presumption),
+- the **unavailable-artifact vectors** (`vectors/unavailable/`, v1.6) for
+  implementations that read the §8 rule-14 array: the declaring export and
+  its declaration-free twin, which differ by that array alone and MUST
+  reach the same outcome, and the four malformed cases (repeated
+  coordinate, unknown `kind`, coordinate of the wrong shape, coordinate not
+  belonging to its kind) a verifier MUST refuse as malformed input,
 - the pipeline rules of §1,
 
 and, for verifiers, accepts/rejects the sample exports pointing at the exact

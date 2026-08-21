@@ -106,8 +106,19 @@
       "minProperties": 1,
       "properties": {
         "workflow": { "$ref": "#/$defs/subject_ref" },
-        "end_client": { "$ref": "#/$defs/subject_ref" },
+        "end_client": {
+          "allOf": [
+            { "$ref": "#/$defs/subject_ref" },
+            { "$ref": "#/$defs/reserved_subject_ref" }
+          ]
+        },
         "tool": { "$ref": "#/$defs/subject_ref" }
+      }
+    },
+    "reserved_subject_ref": {
+      "description": "Reservation of the __tenant_default__ sentinel on end_client only (SPEC.md 1.1). That literal is the format's own name for the encryption scope shared by a tenant's events with no end_client: an end client carrying it as its own ref is filed under the default pool, and erasure of that pool destroys the real end client's DEK with it, irreversibly, on an append-only registry. workflow.ref and tool.ref are unrestricted - neither names an encryption scope.",
+      "properties": {
+        "ref": { "not": { "const": "__tenant_default__" } }
       }
     },
     "subject_ref": {

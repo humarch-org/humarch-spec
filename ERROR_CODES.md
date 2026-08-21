@@ -5,15 +5,19 @@ Every error response of the ingestion API has this body (B4 §4.5):
 ```json
 {
   "error_code": "SCHEMA_VIOLATION",
-  "detail": "actor.type must be one of: agent, human, system (got: \"robot\") at /actor/type",
+  "detail": "actor.type must be equal to one of the allowed values at /actor/type",
   "request_id": "8b6c9d2e-4f5a-4b1c-9d0e-7a8b9c0d1e2f"
 }
 ```
 
 - `error_code` — stable, documented string: the only field automation may
   parse.
-- `detail` — human-readable English; for `SCHEMA_VIOLATION` it contains the
-  JSON Pointer of the first failing field.
+- `detail` — human-readable English; for `SCHEMA_VIOLATION` it carries **a**
+  JSON Pointer to **a** field that violates the schema. Not "the first": JSON
+  Schema draft 2020-12 leaves error order implementation-defined, so no
+  validator can promise position (SPEC.md §9). The `detail` never echoes the
+  rejected value — an echo in a public error body is where a personal datum
+  would leave the system.
 - `request_id` — always present, also echoed in the `x-request-id` header of
   **every** response (including `202`).
 

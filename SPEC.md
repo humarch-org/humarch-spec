@@ -35,8 +35,9 @@ platform, conserved verbatim by the registry; prefer codes over natural names
 autonomous agents and deterministic workflow modules are both `agent`,
 distinguished only by `actor.id`.
 
-Pipeline rules not expressible in the schema (violations are
-`SCHEMA_VIOLATION`):
+Pipeline rules not expressible in the schema. The first four are
+**refusals**, and a violation of any of them is `SCHEMA_VIOLATION` (422); the
+last three are not refusals of that class and are marked where they differ.
 
 - No string may contain **U+0000**; unpaired UTF-16 surrogates are forbidden
   (I-JSON).
@@ -52,11 +53,14 @@ Pipeline rules not expressible in the schema (violations are
   was implicit in the IEEE 754 bullet above; it is stated explicitly because
   a hand-crafted export could otherwise crash a verifier that canonicalizes
   before validating.
-- Duplicate keys: last-wins (adapters SHOULD NOT produce them).
+- Duplicate keys: last-wins (adapters SHOULD NOT produce them). *Not a
+  refusal: a parse convention, so no violation of it exists to report.*
 - `correction.corrects` MUST exist in the same tenant (checked at ingestion).
 - `occurred_at` is informative and never bounded by a time window; the
-  authoritative timestamp is the server-assigned `received_at`.
-- Request body ≤ 256 KB.
+  authoritative timestamp is the server-assigned `received_at`. *Not a
+  refusal: a statement of which timestamp is authoritative.*
+- Request body ≤ 256 KB. *A violation is `413 PAYLOAD_TOO_LARGE`, not
+  `SCHEMA_VIOLATION`: the body is refused before it is validated.*
 
 The idempotency key travels **only** in the `x-idempotency-key` header, never
 in the envelope (F7). Resolution precedence: explicit header → adapter-derived
@@ -76,6 +80,56 @@ Its value is positional: the per-tenant sequence is dense, so any future
 state of the registry in which that sequence number does not carry that
 content is a demonstrable contradiction. Error bodies never carry
 `event_hash`.
+
+### 1.0.1 Declaring a discarded retransmission (v1.7, additive — D109)
+
+The identity criterion of D24 is unchanged: same key + same `payload_hash` is
+a replay, and the first event stands. But a retransmission under the same key
+may carry a **different `actor`, `subject` or `event_type`** and still be
+absorbed as a replay, because none of the three enters the identity criterion.
+The registry then discards a changed statement about **who acted**, silently.
+That is deliberate — widening the criterion would turn a legitimate retry
+carrying different header enrichment into a `409` — but silence is not: in an
+evidentiary registry, an honest mapping mistake that changes the actor and is
+swallowed without a signal is precisely the blindness the registry exists to
+catch.
+
+A replay response therefore **declares** the discard:
+
+```json
+{ "event_id": "…", "sequence_number": 41, "event_hash": "…",
+  "idempotent_replay": true,
+  "replay_divergence": { "fields": ["actor", "event_type"], "count": 2 } }
+```
+
+1. `replay_divergence` is present **only when there is divergence**. A replay
+   of an identical retransmission is byte-identical to the pre-1.7 response —
+   the field adds nothing to the case that was already correct.
+2. `fields` is a non-empty, **lexicographically ordered** subset of the
+   **closed** set `["actor", "event_type", "subject"]`. No other name ever
+   appears: the payload is already the identity criterion, and transport
+   metadata (`occurred_at`, `raw_payload`) is not attribution. A receiver MUST
+   treat an unexpected name as a defect of the sender's implementation, not as
+   an extension point.
+3. Comparison is on the **JCS canonical form** of the normalized value, as for
+   the payload — never textual. `event_type` is an enum and compares directly.
+4. `count` equals `fields.length`. It is not persisted state: the registry is
+   append-only, no row is touched, and the replay lane writes nothing.
+5. **The verdict does not change.** It stays `202` with
+   `idempotent_replay: true`; no second event is written, and it never becomes
+   a `409`. A `409` here would be a change of the identity criterion, not a
+   declaration about it.
+6. The field belongs to the `202` body alone. Error bodies never carry it —
+   the same rule that governs the `event_hash` echo above. In particular a
+   `409 DUPLICATE_IDEMPOTENCY_KEY`, which is what a *different payload* under
+   the same key earns, carries no `replay_divergence`.
+
+Consumers MUST NOT read `replay_divergence` as a statement that anything was
+stored: it describes what the registry **refused to store**, and the event it
+sits beside is the one that was already there. What it buys the sender is the
+one thing the silent form denied it — the chance to notice.
+
+Vectors: `vectors/replay/`.
 
 The ingestion API intentionally sends **no CORS headers**: every supported
 source is server-side (E8).
@@ -100,6 +154,26 @@ personal data of natural persons that must be kept in identifiable form
   `subject_ref = subject.end_client.ref` of the event (or
   `__tenant_default__` when `end_client` is absent, D48). The IV is random
   per encryption; the envelope is self-contained.
+
+**Reserved `subject_ref` sentinel (normative).** The literal
+`__tenant_default__` is **reserved**: it is the format's own name for the
+encryption scope shared by a tenant's events with no `end_client`, and it is
+not available as the identifier of an end client. Ingestion MUST reject an
+event whose `subject.end_client.ref` is exactly `__tenant_default__`, with
+`SCHEMA_VIOLATION`; `event.schema.json` carries the refusal, so an
+implementation that validates against the published schema inherits it. The
+reservation is on `end_client` only — `workflow.ref` and `tool.ref` may
+carry any value, since neither names an encryption scope.
+
+The reason is not tidiness. `subject_ref` selects the data-encryption key
+under which `payload.personal` is sealed, so an end client that carries the
+sentinel as its own `ref` is filed under the default pool rather than under a
+scope of its own. Erasure of the default pool then destroys that end client's
+key with it: one real end client, irreversibly unreadable, as collateral of
+an operation aimed at a different subject — and the registry is append-only,
+so nothing can be rewritten afterwards. A reservation stated only in prose
+would leave that outcome one honest mapping mistake away, which is why it is
+also in the schema.
 
 **Normative rule on non-personal fields (D47):** `label` and `ref` (in
 `actor` and in every `subject` member) MUST NOT contain personal data of
@@ -243,8 +317,10 @@ even in scenarios where operator and tenant would collude.
 `<20260802094107.5A2C@mail.example.com>`, computed with the algorithm
 below and pinned by `vectors/message-id/`.)
 
-Each array member is an object in exactly one of these shapes (extra members
-are allowed; the named member is the REQUIRED one):
+Each array **element** is an object in exactly one of these shapes. Within
+an element, extra **properties** are allowed and the named property is the
+REQUIRED one. (This document uses *element* for a position in an array and
+*property* for a name/value pair in an object, throughout.)
 
 | Shape | Meaning |
 |---|---|
@@ -296,9 +372,14 @@ Normative rules:
      token and its trailing CFWS: whatever does not match the production in
      full is not parsable, and the field is omitted. Under this rule the
      token is US-ASCII by construction.
-  4. **Hash** exactly the bytes of that token, UTF-8 encoded (a no-op for
-     case-folding** and no other normalization:
-     `message_id_sha256 = hex(SHA-256(UTF8(msg-id)))`.
+  4. **Hash** exactly the bytes of that token, UTF-8 encoded (a no-op, since
+     step 3 leaves it US-ASCII), with **no case folding** and no other
+     normalization: `message_id_sha256 = hex(SHA-256(UTF8(msg-id)))`. The
+     `id-left` of a `msg-id` is case-sensitive per RFC 5322, and the
+     `id-right` is case-insensitive as a domain but is **not** lowercased
+     here: folding it would make the digest disagree with one computed from
+     the message as transmitted, which is the only copy a third party can
+     recompute from.
 
   Vectors `vectors/message-id/` pin this rule, the omission cases
   included.
@@ -458,8 +539,22 @@ aggregate_hash = hex( SHA-256( UTF8(
 
 Vector V4. The `aggregate_hash` is timestamped with **OpenTimestamps**
 (Bitcoin). Attestation lifecycle: `pending` → `submitted` (receipt obtained
-from calendar servers) → `confirmed` (Bitcoin attestation complete). The
+from calendar servers) → `confirmed` (Bitcoin attestation complete); those
+three values are the whole vocabulary of `ots_status` (§8.1 class 5). The
 `.ots` file is a detached timestamp of exactly `aggregate_hash`.
+
+**Where the digest sits in the `.ots` serialization.** A detached
+OpenTimestamps receipt begins with the 31-byte magic
+`\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94`,
+then a one-byte major version `0x01`, then a one-byte op tag naming the
+digest algorithm — `0x08` for SHA-256 — then the digest itself, raw, at its
+algorithm's length (32 bytes for SHA-256), and then the operation tree. So
+the bytes a verifier must compare against the recomputed `aggregate_hash`
+are the 32 that follow `magic ‖ 0x01 ‖ 0x08`. This is stated because it is
+the one place where re-deriving the format from a vector was the only route
+open to an implementer, which contradicts the promise made at the top of
+this document; the serialization itself is OpenTimestamps', not ours, and
+the normative reference stays the OpenTimestamps format specification.
 
 Anchor verification levels (D64) — the level used MUST be declared in output:
 
@@ -473,6 +568,32 @@ A confirmed anchor proves existence **at or before** its Bitcoin block time
 and covers events up to that anchor; later events are protected by chain and
 signatures until the next anchor confirms. Verifiers MUST state this rather
 than hide it.
+
+**Binding the anchor to this chain (normative).** A verified `.ots`
+attestation proves that *some* aggregate hash existed at or before a Bitcoin
+block time. By itself it says nothing about *this* export: the aggregate is a
+digest of pairs, and nothing in the attestation names the document that
+carries it. The tie is the pair for this export's `tenant_id` inside
+`anchor_entries_for_aggregate` — the entry set the `aggregate_hash` was
+recomputed from per the formula above. Verifiers MUST check that this pair is
+present and that its `last_event_hash` names the **recomputed** head of the
+verified chain prefix (§8 rule 10) as of that anchor — NOT the
+`last_event_hash` as it appears in the export, and NOT the sibling `entry`
+field, which no aggregate commits to. Those fields are supplied by whoever
+produced the document: binding the anchor to them lets a genuine
+(aggregate, `.ots`) pair lifted from a published export vouch for a
+fabricated chain, at the cost of no keys at all. Verifiers MUST bind to the
+recomputed value.
+
+An anchor that verifies but does not bind proves nothing about this chain,
+and verifiers MUST NOT let it contribute anteriority to any event of this
+export — it remains a true statement about somebody else's day. Note the
+head is resolved by `sequence_number`, the one inference §8 rule 10 tells
+consumers not to make; it is sound only while that number identifies exactly
+one event, so a verifier that has not refused the repetition of rule 8 MUST
+NOT bind at all. This requirement is the same one §7.1 step 2 and §7.2
+step 2 state for their tokens: one rule, applied to each of the three proofs
+this format carries.
 
 ### 7.1 Qualified timestamp (RFC 3161, optional — v1.3, additive)
 
@@ -506,7 +627,14 @@ privileged):
    signer certificate embedded in the token (tokens are requested with
    `certReq` TRUE so exports verify offline);
 4. the signer chains to a TSA the verifying party trusts — for the
-   qualification claim, one accredited under the **EU Trusted List**.
+   qualification claim, one accredited under the **EU Trusted List**. A
+   verifier MAY take that trusted set from a **`humarch-tsa/v1` trust
+   fixture**: a JSON document `{"format": "humarch-tsa/v1", "certificates":
+   ["<base64 DER>", …]}` whose `certificates` are the CA certificates to
+   chain against, in no particular order. The format exists so the
+   conformance vectors can pin a trust decision without depending on the
+   verifying machine's store; it is a convenience of this project, never a
+   substitute for the EU Trusted List in a real qualification claim.
    E.g. `openssl ts -verify -digest <recomputed aggregate> -token_in
    -in token.tst -CAfile <TSA CA chain>` — the digest passed on the command
    line is the value recomputed at step 2, never the one read from the file.
@@ -647,10 +775,22 @@ Normative rules:
    (controls), Cf (format, the bidirectional overrides and isolates among
    them), Zl and Zp (line and paragraph separators). A bidi override inside
    an `event_type` renders as a reversed line and can spell out a verdict
-   the verifier never reached. Machine fields (`event_id`, `tenant_id`,
-   `event_type`, `source`, timestamps, hex digests) MUST NOT contain any of
-   those characters and a verifier MAY refuse such a document as malformed
-   input — the reference verifier does. Provider-supplied display names
+   the verifier never reached. Machine fields MUST NOT contain any of
+   those characters, and a verifier MUST refuse such a document with its
+   malformed-input outcome. The permission this rule used to grant ("MAY
+   refuse") let two conformant verifiers reach two different verdicts on the
+   same hostile document; for an artifact meant to be produced in evidence,
+   the same document has to earn the same verdict. The machine fields are
+   exactly: `tenant_id` at the top level; `signing_keys[].signing_key_id` and
+   `.public_key`; in every event, `event_id`, `tenant_id`, `received_at`,
+   `occurred_at`, `source`, `event_type`, `signing_key_id`, `payload_hash`,
+   `prev_hash`, `event_hash` and `signature`; in every anchor, `anchor_date`,
+   `ots_status`, `aggregate_hash` and the `tenant_id`/`last_event_hash` of
+   each `anchor_entries_for_aggregate` entry. Free-text members carried
+   inside an event (`actor.label`, `subject.*.label`, anything in `payload`)
+   are NOT machine fields: they are hashed as data and neutralized at
+   display, never refused — refusing them would let a sender's typo destroy
+   its own evidence. Provider-supplied display names
    (`qualified_timestamp.tsa_name`) are held only to the control-character
    rule, because a legitimate name may carry a directional mark, and are
    neutralized at display instead. The same discipline applies to the text
@@ -673,9 +813,13 @@ Normative rules:
    convenience metadata that verifiers MUST take from the token itself, and
    the presence of the field asserts nothing: qualification is a property of
    the issuing TSA, established in verification (§7.1). Verifiers MUST cap
-   the token size they are willing to parse (the reference cap is 64 KiB)
-   and MUST treat an unreadable token as a declared `invalid`, never as a
-   verification failure of the export.
+   the token size they are willing to parse at **64 KiB** of DER, and MUST
+   treat an unreadable token — including one over that cap — as a declared
+   `invalid`, never as a verification failure of the export. The cap is
+   normative in its value, not only in its existence: `export-seal-oversize`
+   in `vectors/seal/` pins an outcome that depends on it, so a verifier
+   choosing a different number would disagree with the conformance suite on
+   a document both would call well-formed.
 12. `chain_seals` (v1.5) is OPTIONAL and additive: exports without it are
    the pre-1.5 form and verify identically. Elements are ordered by
    `sequence_number` ascending and each sealed sequence appears **at most
@@ -689,9 +833,10 @@ Normative rules:
    event hash**: the binding target exists only as the recomputed value of
    §7.2 step 2. The presence of the field asserts nothing: qualification is
    a property of the issuing TSA, established in verification. Verifiers
-   MUST cap the token size they are willing to parse (the reference cap is
-   64 KiB) and MUST treat an unreadable token as a declared `invalid`,
-   never as a verification failure of the export.
+   MUST cap the token size they are willing to parse at **64 KiB** of DER
+   (rule 11, same value and same reason) and MUST treat an unreadable token
+   — including one over that cap — as a declared `invalid`, never as a
+   verification failure of the export.
 13. **Omission of unavailable proof artifacts is defined exporter behavior,
    and it is symmetric.** Every proof artifact of this format rides as the
    resolved content of an archived object — the `.ots` receipt
@@ -754,20 +899,153 @@ Normative rules:
    verifier does, as **declared facts naming who is speaking**, never as a
    finding of its own.
 
+### 8.1 Verdict determinism (v1.7, normative)
+
+Rules 1–14 say what an export contains. This section says what a verifier
+does with the cases they leave open. Each entry below was a case where two
+implementations built strictly from this document could reach **different
+verdicts on the same export** — the property that matters most for an
+artifact produced in evidence, and the one the reference verifier was
+silently arbitrating on everyone's behalf. The answers state what the
+reference already does, so no vector moves.
+
+1. **Recomputed vs declared `aggregate_hash`.** The value recomputed from
+   `anchor_entries_for_aggregate` per §7 is authoritative; the declared
+   `aggregate_hash` field is a convenience. A mismatch is an **anchor
+   failure** — declared per anchor, and the export's outcome is the
+   anchor-failure one — never a chain-integrity verdict and never silence.
+   An anchor that fails to recompute also fails the §7 binding, so it
+   contributes no anteriority either way.
+2. **`range` is declarative.** `range.from_sequence`/`to_sequence` are
+   metadata about what the exporter intended to include. Verifiers MUST
+   derive what is verified from the events they actually processed (rule 10),
+   and MUST NOT report coverage on the strength of `range`. A `range` that
+   disagrees with `events` is not malformed input — it is simply not
+   evidence of anything.
+3. **`anchors[].entry` is committed by nothing.** It restates one pair for
+   reader convenience; no aggregate, no `.ots` and no token commits to it.
+   Verifiers MUST NOT use it for the §7 binding or for any other
+   verification decision, and MUST read `anchor_entries_for_aggregate`
+   instead.
+4. **An anchor covering no event of the range is permitted.** Rule 5
+   obliges an exporter to include the anchors whose day intersects the
+   range; it does not forbid others, and `vectors/qualified/
+   export-qualified-today.json` ships one (an anchor dated 2026-07-27 over
+   events received on 2026-07-06). Such an anchor is neither malformed input
+   nor a failure. Note that the day it names decides nothing about whether it
+   binds: the §7 check is on the committed entry set, so an anchor of an
+   unrelated day still binds when its entries name this tenant and this
+   recomputed head — which is exactly what that vector does. Verifiers MUST
+   NOT use `anchor_date` as a proxy for coverage in either direction.
+5. **`ots_status` vocabulary.** Exactly three values are defined —
+   `pending`, `submitted`, `confirmed` — with the §7 lifecycle meanings. A
+   verifier MUST NOT credit any other value as `confirmed`, and MUST NOT
+   derive anteriority from an anchor that is not `confirmed`, Bitcoin
+   verified and time consistent.
+6. **Caps are declared, never silent.** A verifier MUST bound the work an
+   export can make it do, and MUST report a document that exceeds a bound
+   with its malformed-input outcome rather than truncate the check and
+   report a verdict computed on part of the document. A silent cap turns a
+   size into a verdict, which is exactly the lever an attacker wants. The
+   normative caps of this format are the 64 KiB DER token of rules 11–12 and
+   the 1 MiB decoded `.ots` receipt; a verifier MAY bound the document
+   itself, provided it declares the refusal.
+7. **Duplicate JSON keys are last-wins.** The §1 pipeline rule governs
+   verification too: an object with a repeated member is read as though only
+   the last occurrence were present. Stating it makes two verifiers agree on
+   documents no honest exporter produces, which is the only population that
+   matters here.
+8. **Non-finite numbers are refused everywhere.** The §1 rule is not scoped
+   to `actor`/`subject`/`payload`: a verifier MUST reject a non-finite
+   number **at any position in the document** as malformed input.
+   `sequence_number: 1e999` was outside the letter of the old wording while
+   being exactly the input the rule exists for.
+9. **"Verbatim" governs the pre-image, not comparison.** Rule 1 forbids
+   reformatting a timestamp that enters a hash. Where a rule compares times
+   instead — the §7 anchor time consistency, the `gen_time` coherence of
+   §7.1 and §7.2 — a verifier parses a copy for the comparison and still
+   hashes the original bytes. The two obligations never meet.
+10. **The export object is OPEN.** A top-level member this version does not
+    define MUST be ignored, never refused: that is what makes an additive
+    minor deployable — a v1.6 verifier has to survive meeting a v1.7
+    document. Rule 14 states the same for its own elements, and the
+    reference verifier accepts unknown top-level members today. Closedness
+    belongs to the ingestion envelope (§1), which is a different document
+    with a different author and a different threat model.
+11. **A declaration naming an absent coordinate is well-formed.** A rule-14
+    element of the right kind and shape whose `anchor_date` or
+    `sequence_number` appears nowhere in the export is NOT malformed input —
+    rule 14 lists what is, and this is not on the list. Like every other
+    declaration it changes no outcome (rule 14 neutrality): it is one more
+    assertion by whoever produced the document, about a coordinate the
+    document does not carry.
+
+Two further classes are refused by this format and were never written down,
+though the reference verifier has always enforced them:
+
+12. **An event whose `tenant_id` differs from the export's** is malformed
+    input, rule-8 class. The verdict is a statement about
+    `tenant_id`: the rendered header, the genesis pre-image of §4 and the
+    §7 binding all read it, so a document that mixes tenants — or that
+    declares one tenant and carries another's events — MUST be refused
+    rather than verified under a label the attacker chose.
+13. **Two anchors sharing an `anchor_date`** are malformed input, rule-8
+    class: a day has exactly one aggregate (§7), so a repeated date is
+    never a genuine export, and admitting it lets a decoy anchor ride in on
+    a real one's date.
+
+**Attribution: the trusted issuer set comes from outside (normative).**
+`signing_keys` travels **inside** the document, so a signature that verifies
+under a key the document itself supplies proves that the file is internally
+consistent and nothing about who signed it: an attacker generates a key pair,
+signs a fabricated chain, and ships the public key in the same file. The
+self-certifying key id of §6 does not close this — it proves the id matches
+the key, never that the key is the registry's. Verifiers MUST obtain the set
+of trusted `signing_key_id` values from a source independent of the export —
+`KEYS.md` in this repository, the operator's published key registry, a set
+pinned by the verifying party — and MUST NOT present a signature as
+attributed, or a document as verified in the attribution sense, on the
+strength of a key carried by the document alone. A signature valid under an
+untrusted key is a **valid signature from an unknown issuer**, and verifiers
+MUST report it as such rather than as a failure: the distinction is the same
+one §7.1 draws between an invalid token and a valid token from an untrusted
+TSA.
+
+Attribution is the one property of this format that cannot come from inside
+the artifact being attributed. Integrity and anteriority are self-contained
+once the anchor binds (§7); identity is not, and no amount of internal
+coherence will make it so.
+
 A verifier processes the export as in the reference implementation
 (`humarch-verify`): recompute component hashes (JCS from parsed values),
 recompute `event_hash` from the D11 pre-image, check the chain link and dense
 sequence (down to genesis when the range starts at 1; a mid-chain start is a
-**declared** entry point), check the self-certifying key id, verify the
-Ed25519 signature, then recompute anchor aggregates and verify `.ots`
-attestations at the chosen level. First failure reported with its exact
-sequence number.
+**declared** entry point), check the self-certifying key id, take the set of
+trusted issuers from OUTSIDE this document and verify the Ed25519 signature
+against it, then recompute anchor aggregates, verify `.ots` attestations at
+the chosen level, and bind that anchor to the recomputed chain head per §7.
+The last two steps are the ones that make the verdict a statement about this
+chain rather than about the document's internal consistency: a recipe without
+them accepts a fabricated chain carrying a stolen anchor, signed by a key the
+document supplied. First failure reported with its exact sequence number.
 
 ## 9. Error contract
 
 See `ERROR_CODES.md`. Codes are **stable**: removing or changing semantics is
 a breaking change; additions are minor. Clients MUST treat unknown codes as
 non-retryable unless the HTTP class is 5xx or 429.
+
+**On the JSON Pointer in a `SCHEMA_VIOLATION` `detail` (v1.7).** JSON Schema
+draft 2020-12 does not define the order in which a validator reports errors,
+so "the pointer of the first failing field" is a property of a validator, not
+of `event.schema.json`, and two conformant validators may name different
+fields for the same envelope. What this format requires is therefore weaker
+and actually checkable: the `detail` of a `SCHEMA_VIOLATION` MUST carry **a**
+JSON Pointer to **a** field whose value violates the schema. The conformance
+cases in `vectors/schema/invalid/` are built with a single deepest cause each
+and assert membership, not position — an implementer who reads the pointer as
+"the first error" and pins it will find validators disagreeing with no
+violation of this spec by either.
 
 ## 10. Versioning (D33)
 
@@ -786,9 +1064,11 @@ An implementation is conformant when it reproduces:
 - the shredding vector **V6** (`vectors/shredding/`) and the DEK-wrapping
   vector **W1** (`vectors/wrapping/`), for implementations that handle
   `payload.personal` (v1.1),
-- the **25 schema cases** (`vectors/schema/`) — v09/v10 pin the v1.2 payload
+- the **27 schema cases** (`vectors/schema/`) — v09/v10 pin the v1.2 payload
   conventions (`tool_call`, `delegation`), v11/v12 the v1.4 conventions
-  (`external_refs`, `execution`),
+  (`external_refs`, `execution`), and the pair v13/i14 the v1.7 reservation
+  of `__tenant_default__` (§1.1): i14 that an `end_client` claiming the
+  sentinel is refused, v13 that `workflow` and `tool` are not,
 - the **message-id vectors** (`vectors/message-id/`, v1.4) for
   implementations that declare `message_id_sha256`: the §1.2.5 algorithm on
   folded, commented and duplicated headers, omission cases included,
@@ -803,6 +1083,10 @@ An implementation is conformant when it reproduces:
   reach the same outcome, and the four malformed cases (repeated
   coordinate, unknown `kind`, coordinate of the wrong shape, coordinate not
   belonging to its kind) a verifier MUST refuse as malformed input,
+- the **replay vectors** (`vectors/replay/`, v1.7) for implementations that
+  emit the ingestion contract: the identical retransmission whose `202` MUST
+  stay byte-identical to the pre-1.7 form, the three divergence shapes, and
+  the different-payload case that stays a `409` carrying no declaration,
 - the pipeline rules of §1,
 
 and, for verifiers, accepts/rejects the sample exports pointing at the exact

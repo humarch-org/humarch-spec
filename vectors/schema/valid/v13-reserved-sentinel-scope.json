@@ -1,0 +1,21 @@
+{
+  "description": "the __tenant_default__ reservation is scoped to end_client: workflow.ref and tool.ref may carry the literal, because neither names an encryption scope. Pinned as a valid case so a later restructure of $defs cannot widen the refusal in silence (SPEC.md 1.1, reserved sentinel)",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {
+      "workflow": {
+        "ref": "__tenant_default__"
+      },
+      "tool": {
+        "ref": "__tenant_default__"
+      }
+    },
+    "payload": {
+      "action": "x"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "description": "__tenant_default__ is reserved: it names the encryption scope of a tenant's events with no end_client, so an end client claiming it is filed under the default pool and is destroyed with that pool (SPEC.md 1.1, reserved sentinel)",
+  "expect_pointer": "/subject/end_client/ref",
+  "envelope": {
+    "event_type": "agent_action",
+    "actor": {
+      "type": "agent",
+      "id": "a1"
+    },
+    "subject": {
+      "end_client": {
+        "ref": "__tenant_default__"
+      }
+    },
+    "payload": {
+      "action": "x"
+    }
+  }
+}

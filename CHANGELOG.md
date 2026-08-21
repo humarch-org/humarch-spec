@@ -4,6 +4,108 @@ All notable changes to the Humarch public spec. SemVer (D33): additive = minor,
 breaking = new major with a new `$id` path (and a new pre-image domain prefix
 when hashing is touched).
 
+## 1.7.0 — 2026-08-21
+
+External binding of the verification recipe, reservation of the
+`__tenant_default__` sentinel, declaration of a discarded retransmission, and
+the determinism of §8 (additive, D33; SPEC.md §7, §8, §8.1, §1.0.1, §1.1):
+
+- **Anchor binding (§7, new normative clause).** The §8 recipe verified the
+  internal coherence of a document and never required a tie to anything
+  outside it. A verified `.ots` attestation proves that *some* aggregate
+  existed at a block time; nothing said it had to name *this* chain. So a
+  genuine anchor lifted from a published export verified attached to a
+  fabricated chain, at the cost of no keys at all. Verifiers MUST now check
+  that `anchor_entries_for_aggregate` carries the pair for this export's
+  `tenant_id` naming the **recomputed** head of the verified prefix — not the
+  `last_event_hash` as it appears in the export, and not the sibling `entry`
+  field, which no aggregate commits to — and MUST bind to the recomputed
+  value. An anchor that verifies but does not bind contributes no anteriority.
+  The clause is the twin of §7.1 step 2 and §7.2 step 2, written with the same
+  structure and the same words: one rule, applied to each of the three proofs
+  this format carries
+- **Attribution (§8, new normative clause).** `signing_keys` travels inside
+  the document, so a signature verifying under a key the document supplies
+  proves internal consistency and nothing about who signed: an attacker
+  generates a key pair, signs a fabricated chain, and ships the public key in
+  the same file. The self-certifying key id of §6 does not close this — it
+  proves the id matches the key, never that the key is the registry's.
+  Verifiers MUST take the trusted `signing_key_id` set from a source
+  independent of the export, and MUST NOT present a signature as attributed
+  on the strength of a document-carried key. A signature valid under an
+  untrusted key is a valid signature from an unknown issuer, reported as such
+  and not as a failure. `KEYS.md` becomes a requirement, no longer a
+  convenience
+- **`__tenant_default__` is reserved (§1.1).** The literal is the format's own
+  name for the encryption scope shared by a tenant's events with no
+  `end_client`. Nothing stopped an end client from carrying it as its own
+  `ref`, which filed that end client under the default pool: erasure of the
+  pool then destroyed the real end client's key with it, irreversibly, on an
+  append-only registry. Ingestion MUST reject an event whose
+  `subject.end_client.ref` is exactly that literal, with `SCHEMA_VIOLATION`,
+  and `event.schema.json` now carries the refusal so an implementation
+  validating against the published schema inherits it. The reservation is
+  scoped to `end_client`: `workflow.ref` and `tool.ref` are unrestricted,
+  because neither names an encryption scope
+- **`replay_divergence` (§1.0.1, D109).** The identity criterion of D24 is
+  unchanged — same key + same `payload_hash` is still a replay, and the first
+  event still stands. What changes is what the `202` **declares**: a
+  retransmission carrying a different `actor`, `subject` or `event_type` was
+  absorbed in silence, discarding a changed statement about who acted. The
+  replay body now carries `replay_divergence: {fields, count}` over that
+  closed set, compared by JCS canonical form, lexicographically ordered.
+  Present **only** when something diverged, so a replay of an identical
+  retransmission stays byte-identical to the pre-1.7 response; the verdict
+  stays `202` and never becomes a `409`; error bodies never carry it
+- **§8.1 verdict determinism (new).** Eleven classes where two verifiers built
+  strictly from this document could reach different verdicts on the same
+  export, plus the two the reference verifier had always refused without §8
+  ever defining them (an event whose `tenant_id` differs from the export's;
+  two anchors sharing an `anchor_date`). Each answer states what the reference
+  already does, so no vector moves
+- §8 rule 9: "a verifier MAY refuse" becomes MUST — one hostile document
+  earned two lawful verdicts — and the machine-field list, previously
+  exemplificative, is enumerated
+- §8 rules 11–12: the 64 KiB token cap is normative **in its value**, not only
+  in its existence; `vectors/seal/export-seal-oversize.json` pins an outcome
+  that depends on it
+- §9: the `SCHEMA_VIOLATION` `detail` carries **a** JSON Pointer to **a**
+  violating field, not "the first" — draft 2020-12 leaves error order
+  implementation-defined, so no validator can promise position (CWE-758)
+- §7: where the digest sits in the `.ots` serialization (the 32 bytes after
+  `magic ‖ 0x01 ‖ 0x08`), and §7.1: the `humarch-tsa/v1` trust-fixture format,
+  both previously derivable only by reverse-engineering a vector
+- §1.2.5 step 4 of the `message_id_sha256` algorithm was syntactically broken
+  — unbalanced emphasis, an unclosed parenthesis, a truncated clause — inside
+  a normative algorithm. Rewritten; the behaviour it now states is the one the
+  vectors always pinned (no case folding)
+- §1: the "violations are `SCHEMA_VIOLATION`" heading governed three bullets
+  that are not of that class; §1.2.5: *element* and *property* are now used
+  apart, on a document written to be reimplemented
+- new vectors `vectors/replay/` (five cases) and two schema cases: **27**
+  schema cases, 13 valid + 14 invalid. `v13`/`i14` are the two halves of the
+  reservation — i14 that an `end_client` claiming the sentinel is refused, v13
+  that `workflow` and `tool` are not, so widening the refusal is as much a
+  test diff as dropping it
+- `vectors/README.md` claimed all signatures used the RFC 8032 key "so that
+  anyone can regenerate every value from scratch". That is false of the 15
+  export vectors, signed with `ed25519:dc5578a147d359bf`, whose seed is not in
+  the repository and will not be. They are verify-only, and the file now says
+  so; the remedy is to tell the truth, not to publish the seed
+- new `tests/clauses.ts`, `tests/prose.test.ts` and `tests/mutation.test.ts`:
+  every normative obligation of the repository is registered as an **anchored
+  clause**, and the mutation pass enumerates the RFC 2119 tokens of SPEC.md
+  **from the document on every run**, weakens each one, and requires a clause
+  to go red. It found the omissions this release fixes; a hand-maintained list
+  would have been written before the clauses above and would have been born
+  blind to them. `ERROR_CODES.md`, `CHANGELOG.md`, `README.md` and
+  `vectors/README.md` were read by no test at all until now
+- **Additive**: every pre-1.7 export verifies identically, every pre-1.7
+  vector is byte-identical, and hashing, canonicalization and signing are
+  untouched. The reservation of `__tenant_default__` is the one restriction:
+  the literal never worked as an end-client identifier — it collided with the
+  default pool by construction — so no correct producer loses anything
+
 ## 1.6.0 — 2026-08-06
 
 Self-declaration of omitted proof artifacts (additive, D33; SPEC.md §8):

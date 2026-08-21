@@ -1,10 +1,13 @@
-// The 25 schema cases (B5 §5.2.1; v1.2 amendment D91, v1.4 amendment D100)
-// are the validation contract: 12 valid, 13 invalid each failing with the
-// expected JSON Pointer as first error. v09/v10 pin the v1.2 payload
-// conventions (tool_call, delegation), v11/v12 the v1.4 conventions
-// (external_refs, execution): valid by construction (the payload is open,
-// D30) — the cases freeze the canonical field names so a drift becomes a
-// test diff.
+// The 27 schema cases (B5 §5.2.1; v1.2 amendment D91, v1.4 amendment D100,
+// v1.7 reserved sentinel) are the validation contract: 13 valid, 14 invalid
+// each failing with the expected JSON Pointer among its errors. v09/v10 pin
+// the v1.2 payload conventions (tool_call, delegation), v11/v12 the v1.4
+// conventions (external_refs, execution): valid by construction (the payload
+// is open, D30) — the cases freeze the canonical field names so a drift
+// becomes a test diff. v13/i14 are the two halves of the v1.7 reservation of
+// __tenant_default__ (SPEC.md §1.1): i14 pins that an end_client claiming the
+// sentinel is refused, v13 pins that workflow and tool are NOT, so widening
+// the refusal is as much a test diff as dropping it.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import Ajv2020Import from "npm:ajv@8.18.0/dist/2020.js";
 import addFormatsImport from "npm:ajv-formats@3.0.1";
@@ -34,9 +37,9 @@ const caseFiles = (dir: string): string[] =>
 const validNames = caseFiles("valid");
 const invalidNames = caseFiles("invalid");
 
-Deno.test("the case count is the contract: 12 valid + 13 invalid = 25", () => {
-  assertEquals(validNames.length, 12);
-  assertEquals(invalidNames.length, 13);
+Deno.test("the case count is the contract: 13 valid + 14 invalid = 27", () => {
+  assertEquals(validNames.length, 13);
+  assertEquals(invalidNames.length, 14);
 });
 
 for (const name of validNames) {
@@ -62,8 +65,8 @@ for (const name of invalidNames) {
 
 // ---------------------------------------------------------------------------
 // payload.personal oneOf (v1.1 amendment, B8 §8.6). B5 norms no additional
-// NUMBERED cases for the container — the 21 cases above stay the canonical
-// contract; these cover the amendment without renumbering it.
+// NUMBERED cases for the container — the numbered cases above stay the
+// canonical contract; these cover the amendment without renumbering it.
 // ---------------------------------------------------------------------------
 const base = (payload: Record<string, unknown>) => ({
   event_type: "agent_action",

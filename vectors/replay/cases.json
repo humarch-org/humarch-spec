@@ -1,0 +1,103 @@
+[
+  {
+    "id": "r01-identical-replay",
+    "description": "identical retransmission: the 202 body carries NO replay_divergence and is byte-identical to the pre-1.7 form. This case is the non-regression proof of the whole minor (SPEC 1.0.1 point 1).",
+    "idempotency_key": "hdr:run-84211-step-3",
+    "first": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "second": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "expect_status": 202,
+    "expect_idempotent_replay": true,
+    "expect_replay_divergence": null
+  },
+  {
+    "id": "r02-actor-diverges",
+    "description": "same key, same payload, different actor.id: the actor is discarded and the discard is declared (SPEC 1.0.1 point 2).",
+    "idempotency_key": "hdr:run-84211-step-3",
+    "first": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "second": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_9zq" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "expect_status": 202,
+    "expect_idempotent_replay": true,
+    "expect_replay_divergence": { "fields": ["actor"], "count": 1 }
+  },
+  {
+    "id": "r03-actor-and-event-type-diverge",
+    "description": "two attribution fields diverge at once: fields is lexicographically ordered and count is its length (SPEC 1.0.1 points 2 and 4).",
+    "idempotency_key": "hdr:run-84211-step-3",
+    "first": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "second": {
+      "event_type": "custom",
+      "actor": { "type": "human", "id": "u-17" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "expect_status": 202,
+    "expect_idempotent_replay": true,
+    "expect_replay_divergence": { "fields": ["actor", "event_type"], "count": 2 }
+  },
+  {
+    "id": "r04-subject-diverges",
+    "description": "the subject names a different end client. This is the case a Make/n8n template can produce on its own, because every template rewrites subject from a header (BT-54): the retransmission silently re-attributes the work to another client unless the discard is declared.",
+    "idempotency_key": "hdr:run-84211-step-3",
+    "first": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "second": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "globex-srl" } },
+      "payload": { "action": "send_email" }
+    },
+    "expect_status": 202,
+    "expect_idempotent_replay": true,
+    "expect_replay_divergence": { "fields": ["subject"], "count": 1 }
+  },
+  {
+    "id": "r05-payload-diverges-stays-409",
+    "description": "a different payload is NOT a replay: the identity criterion of D24 is untouched, the response stays 409 DUPLICATE_IDEMPOTENCY_KEY, and no error body ever carries replay_divergence (SPEC 1.0.1 points 5 and 6).",
+    "idempotency_key": "hdr:run-84211-step-3",
+    "first": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "send_email" }
+    },
+    "second": {
+      "event_type": "agent_action",
+      "actor": { "type": "agent", "id": "asst_4kx" },
+      "subject": { "end_client": { "ref": "acme-ltd" } },
+      "payload": { "action": "delete_account" }
+    },
+    "expect_status": 409,
+    "expect_error_code": "DUPLICATE_IDEMPOTENCY_KEY",
+    "expect_idempotent_replay": null,
+    "expect_replay_divergence": null
+  }
+]

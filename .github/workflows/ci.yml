@@ -1,5 +1,9 @@
-# humarch-spec CI (B12 §12.7): re-runs the 21 schema cases and the crypto
-# vectors V0-V5 on every commit — the conformance contract stays green.
+# humarch-spec CI (B12 §12.7): re-runs the whole conformance contract on every
+# commit — the schema cases, the crypto vectors V0-V6 and W1, the prose-clause
+# registry and the SPEC.md mutation pass. The case count deliberately does not
+# appear here: it is pinned by tests/schema.test.ts, which is the one place
+# that can be wrong and go red. A number repeated in a comment can only go
+# stale (it said 21 from v1.4 to v1.6, while the contract said 25).
 name: ci
 on:
   push:
